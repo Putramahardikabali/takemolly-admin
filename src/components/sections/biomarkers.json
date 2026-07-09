@@ -1,0 +1,16 @@
+{
+  "collectionName": "components_sections_biomarkers",
+  "info": {
+    "displayName": "Biomarkers Section"
+  },
+  "attributes": {
+    "title": {
+      "type": "string",
+      "default": "Critical Biomarkers We’ve Improved"
+    },
+    "description": {
+      "type": "text",
+      "default": "By targeting the most significant building blocks in recovery, our unique formula accelerates your body’s post-exercise healing response."
+    }
+  }
+}

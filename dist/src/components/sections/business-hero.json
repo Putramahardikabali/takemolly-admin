@@ -1,0 +1,31 @@
+{
+    "collectionName": "components_sections_business_heroes",
+    "info": {
+        "displayName": "Hero",
+        "icon": "award"
+    },
+    "options": {},
+    "attributes": {
+        "title": {
+            "type": "string",
+            "required": true,
+            "default": "Have You Got Fitness Customers?"
+        },
+        "subtitle": {
+            "type": "text"
+        },
+        "badge_text": {
+            "type": "string",
+            "default": "You Sell, We Supply, No Stock Cost"
+        },
+        "product_image": {
+            "type": "media",
+            "multiple": false,
+            "allowedTypes": ["images"]
+        },
+        "cta_label": {
+            "type": "string",
+            "default": "Learn More"
+        }
+    }
+}

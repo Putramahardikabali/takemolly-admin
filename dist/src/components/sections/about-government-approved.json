@@ -1,0 +1,30 @@
+{
+    "collectionName": "components_about_sections_about_gov_approved",
+    "info": {
+        "displayName": "about-government-approved",
+        "icon": "check"
+    },
+    "options": {},
+    "attributes": {
+        "title": {
+            "type": "string"
+        },
+        "subtitle": {
+            "type": "text"
+        },
+        "image": {
+            "allowedTypes": ["images"],
+            "type": "media",
+            "multiple": false
+        },
+        "video": {
+            "allowedTypes": ["videos"],
+            "type": "media",
+            "multiple": false
+        },
+        "video_button_text": {
+            "type": "string",
+            "default": "Watch Our Lab Tour Video"
+        }
+    }
+}

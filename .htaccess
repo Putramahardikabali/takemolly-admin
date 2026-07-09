@@ -1,0 +1,7 @@
+RewriteEngine On
+
+# Force admin to Strapi
+RewriteRule ^admin/(.*)$ http://127.0.0.1:1337/admin/$1 [P,L]
+
+# Everything else to Strapi too (optional)
+RewriteRule ^(.*)$ http://127.0.0.1:1337/$1 [P,L]

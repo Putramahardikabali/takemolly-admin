@@ -1,0 +1,32 @@
+{
+  "collectionName": "components_elements_social_proof_items",
+  "info": {
+    "displayName": "social-proof-item",
+    "icon": "picture"
+  },
+  "options": {},
+  "attributes": {
+    "title": {
+      "type": "string",
+      "required": true
+    },
+    "subtitle": {
+      "type": "string"
+    },
+    "image": {
+      "allowedTypes": ["images"],
+      "type": "media",
+      "multiple": false,
+      "required": true
+    },
+    "video": {
+      "allowedTypes": ["videos"],
+      "type": "media",
+      "multiple": false
+    },
+    "is_large": {
+      "type": "boolean",
+      "default": false
+    }
+  }
+}

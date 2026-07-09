@@ -1,0 +1,17 @@
+{
+    "collectionName": "components_sections_how_we_did_its",
+    "info": {
+        "displayName": "How We Did It"
+    },
+    "attributes": {
+        "title": {
+            "type": "string",
+            "default": "How We Did It"
+        },
+        "stats": {
+            "type": "component",
+            "repeatable": true,
+            "component": "elements.stat-item"
+        }
+    }
+}

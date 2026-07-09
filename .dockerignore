@@ -1,0 +1,36 @@
+# Node
+node_modules
+npm-debug.log
+yarn-error.log
+pnpm-lock.yaml
+
+# Strapi builds
+.build
+.cache
+tmp
+.git
+.gitignore
+
+# Env & secrets
+.env
+.env.*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode
+.idea
+
+# Tests
+coverage
+__tests__
+
+# Docker
+Dockerfile
+docker-compose.yml
+
+# Logs
+logs
+*.log

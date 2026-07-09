@@ -1,0 +1,30 @@
+{
+    "collectionName": "components_about_sections_about_heroes",
+    "info": {
+        "displayName": "about-hero",
+        "icon": "picture"
+    },
+    "options": {},
+    "attributes": {
+        "title": {
+            "type": "string"
+        },
+        "description": {
+            "type": "text"
+        },
+        "founder_image": {
+            "allowedTypes": ["images"],
+            "type": "media",
+            "multiple": false
+        },
+        "video": {
+            "allowedTypes": ["videos"],
+            "type": "media",
+            "multiple": false
+        },
+        "button_text": {
+            "type": "string",
+            "default": "View Data"
+        }
+    }
+}

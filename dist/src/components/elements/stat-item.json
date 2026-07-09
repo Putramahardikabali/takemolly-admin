@@ -1,0 +1,9 @@
+{
+    "collectionName": "components_elements_stat_items",
+    "info": { "displayName": "Stat Item" },
+    "attributes": {
+        "number": { "type": "string" },
+        "label": { "type": "string" },
+        "description": { "type": "text" }
+    }
+}

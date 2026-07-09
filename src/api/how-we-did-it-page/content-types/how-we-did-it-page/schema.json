@@ -1,0 +1,29 @@
+{
+  "kind": "singleType",
+  "collectionName": "how_we_did_it_pages",
+  "info": {
+    "singularName": "how-we-did-it-page",
+    "pluralName": "how-we-did-it-pages",
+    "displayName": "Page | How We Did It",
+    "description": "Content management for the How We Did It page"
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "attributes": {
+    "internal_title": {
+      "type": "string",
+      "required": true,
+      "default": "How We Did It Page"
+    },
+    "seo": {
+      "type": "component",
+      "repeatable": false,
+      "component": "shared.seo"
+    },
+    "sections": {
+      "type": "dynamiczone",
+      "components": ["sections.how-we-did-it-video"]
+    }
+  }
+}

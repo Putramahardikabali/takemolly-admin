@@ -1,0 +1,23 @@
+{
+    "collectionName": "components_sections_stockist_locators",
+    "info": {
+        "displayName": "stockist-locator",
+        "icon": "pinMap"
+    },
+    "options": {},
+    "attributes": {
+        "title": {
+            "type": "string"
+        },
+        "offline_stores": {
+            "type": "component",
+            "repeatable": true,
+            "component": "elements.offline-store"
+        },
+        "online_stores": {
+            "type": "component",
+            "repeatable": true,
+            "component": "elements.online-store"
+        }
+    }
+}

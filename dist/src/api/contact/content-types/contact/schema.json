@@ -1,0 +1,35 @@
+{
+    "kind": "singleType",
+    "collectionName": "contacts",
+    "info": {
+        "singularName": "contact",
+        "pluralName": "contacts",
+        "displayName": "Contact Information",
+        "description": "Store global contact details and links"
+    },
+    "options": {
+        "draftAndPublish": true
+    },
+    "attributes": {
+        "email": {
+            "type": "email",
+            "required": true,
+            "unique": true
+        },
+        "whatsapp_number": {
+            "type": "string",
+            "required": false,
+            "regex": "^\\+[1-9]\\d{1,14}$"
+        },
+        "whatsapp_link": {
+            "type": "string",
+            "required": false,
+            "regex": "^https:\\/\\/wa\\.me\\/[0-9]+$"
+        },
+        "signup_link": {
+            "type": "string",
+            "required": false,
+            "regex": "^https?:\\/\\/.+"
+        }
+    }
+}

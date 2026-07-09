@@ -1,0 +1,31 @@
+{
+    "collectionName": "components_elements_athlete_slides",
+    "info": {
+        "displayName": "Athlete Slide"
+    },
+    "attributes": {
+        "athlete_tag": {
+            "type": "string",
+            "default": "I'm a MMA Fighter"
+        },
+        "headline": {
+            "type": "string",
+            "default": "AND I TAKE MOLLY"
+        },
+        "poster_image": {
+            "type": "media",
+            "multiple": false,
+            "allowedTypes": ["images"],
+            "required": true
+        },
+        "video_url": {
+            "type": "string",
+            "description": "Link to YouTube, Vimeo, or a direct video file URL"
+        },
+        "video_file": {
+            "type": "media",
+            "allowedTypes": ["videos"],
+            "description": "Alternatively, upload the video file directly"
+        }
+    }
+}

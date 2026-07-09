@@ -1,0 +1,30 @@
+{
+    "kind": "singleType",
+    "collectionName": "ingredients_pages",
+    "info": {
+        "singularName": "ingredients-page",
+        "pluralName": "ingredients-pages",
+        "displayName": "Page | Ingredients"
+    },
+    "options": {
+        "draftAndPublish": true
+    },
+    "attributes": {
+        "internal_title": {
+            "type": "string",
+            "required": true,
+            "default": "Ingredients Page"
+        },
+        "seo": {
+            "type": "component",
+            "repeatable": false,
+            "component": "shared.seo"
+        },
+        "sections": {
+            "type": "dynamiczone",
+            "components": [
+                "sections.ingredients-list"
+            ]
+        }
+    }
+}

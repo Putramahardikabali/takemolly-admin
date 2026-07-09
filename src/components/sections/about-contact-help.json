@@ -1,0 +1,16 @@
+{
+  "collectionName": "components_about_sections_about_contact_helps",
+  "info": {
+    "displayName": "about-contact-help",
+    "icon": "phone"
+  },
+  "options": {},
+  "attributes": {
+    "title": {
+      "type": "string"
+    },
+    "subtitle": {
+      "type": "string"
+    }
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "collectionName": "components_sections_founder_timelines",
+  "info": {
+    "displayName": "Founder Timeline"
+  },
+  "attributes": {
+    "main_title": {
+      "type": "string",
+      "default": "Meet Kai, Our Founder"
+    },
+    "subtitle": {
+      "type": "string",
+      "default": "A Double Cancer Survivor"
+    },
+    "description": {
+      "type": "text",
+      "default": "Trust in someone who’s walked the tough path of recovery, not once, but twice."
+    },
+    "events": {
+      "type": "component",
+      "repeatable": true,
+      "component": "elements.timeline-card"
+    }
+  }
+}

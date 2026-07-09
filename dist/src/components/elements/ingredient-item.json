@@ -1,0 +1,28 @@
+{
+    "collectionName": "components_elements_ingredient_items",
+    "info": {
+        "displayName": "ingredient-item",
+        "icon": "cube"
+    },
+    "options": {},
+    "attributes": {
+        "name": {
+            "type": "string",
+            "required": true
+        },
+        "dosage": {
+            "type": "string"
+        },
+        "slug": {
+            "type": "string"
+        },
+        "description": {
+            "type": "text"
+        },
+        "image": {
+            "allowedTypes": ["images"],
+            "type": "media",
+            "multiple": false
+        }
+    }
+}

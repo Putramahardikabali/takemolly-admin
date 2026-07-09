@@ -1,0 +1,24 @@
+{
+    "collectionName": "components_sections_how_it_works",
+    "info": {
+        "displayName": "How It Works"
+    },
+    "attributes": {
+        "title": {
+            "type": "string",
+            "default": "How It Works!"
+        },
+        "sachet_image": {
+            "type": "media",
+            "multiple": false,
+            "required": true
+        },
+        "steps": {
+            "type": "component",
+            "repeatable": true,
+            "min": 3,
+            "max": 3,
+            "component": "elements.step-item"
+        }
+    }
+}

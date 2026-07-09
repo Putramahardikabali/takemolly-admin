@@ -1,0 +1,18 @@
+{
+    "collectionName": "components_sections_business_media_marquees",
+    "info": {
+        "displayName": "Media Marquee",
+        "icon": "images"
+    },
+    "attributes": {
+        "title": {
+            "type": "string",
+            "default": "As Seen in"
+        },
+        "logos": {
+            "type": "media",
+            "multiple": true,
+            "allowedTypes": ["images"]
+        }
+    }
+}

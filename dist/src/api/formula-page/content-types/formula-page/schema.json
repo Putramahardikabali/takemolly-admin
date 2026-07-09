@@ -1,0 +1,30 @@
+{
+    "kind": "singleType",
+    "collectionName": "formula_pages",
+    "info": {
+        "singularName": "formula-page",
+        "pluralName": "formula-pages",
+        "displayName": "Page | Formula"
+    },
+    "options": {
+        "draftAndPublish": true
+    },
+    "attributes": {
+        "internal_title": {
+            "type": "string",
+            "required": true,
+            "default": "Formula Page"
+        },
+        "seo": {
+            "type": "component",
+            "repeatable": false,
+            "component": "shared.seo"
+        },
+        "sections": {
+            "type": "dynamiczone",
+            "components": [
+                "sections.page-header"
+            ]
+        }
+    }
+}

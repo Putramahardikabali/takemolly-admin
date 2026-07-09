@@ -1,0 +1,16 @@
+{
+  "collectionName": "components_sections_results_databases",
+  "info": {
+    "displayName": "Results Database"
+  },
+  "attributes": {
+    "title": {
+      "type": "string",
+      "default": "What Works, Proven by Data"
+    },
+    "subtitle": {
+      "type": "text",
+      "default": "Using advanced data analytics and AI, we’ve identified the most effective combination of ingredients to improve exercise recovery."
+    }
+  }
+}

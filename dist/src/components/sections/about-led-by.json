@@ -1,0 +1,25 @@
+{
+    "collectionName": "components_about_sections_about_led_bys",
+    "info": {
+        "displayName": "about-led-by",
+        "icon": "shield"
+    },
+    "options": {},
+    "attributes": {
+        "title": {
+            "type": "string"
+        },
+        "subtitle": {
+            "type": "text"
+        },
+        "method_button_text": {
+            "type": "string",
+            "default": "Method"
+        },
+        "experts": {
+            "type": "component",
+            "repeatable": true,
+            "component": "elements.about-expert-card"
+        }
+    }
+}

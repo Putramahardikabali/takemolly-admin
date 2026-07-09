@@ -1,0 +1,17 @@
+{
+  "collectionName": "components_sections_business_benefits",
+  "info": {
+    "displayName": "Benefits Grid",
+    "icon": "check-circle"
+  },
+  "attributes": {
+    "title": {
+      "type": "string"
+    },
+    "benefit_items": {
+      "type": "component",
+      "repeatable": true,
+      "component": "elements.business-benefit-item"
+    }
+  }
+}

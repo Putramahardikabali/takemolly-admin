@@ -1,0 +1,230 @@
+{
+    "kind": "collectionType",
+    "collectionName": "supplements",
+    "info": {
+        "singularName": "supplement",
+        "pluralName": "supplements",
+        "displayName": "Supplement"
+    },
+    "options": {
+        "draftAndPublish": true
+    },
+    "pluginOptions": {},
+    "attributes": {
+        "supplement_name": {
+            "type": "string",
+            "required": true
+        },
+        "slug": {
+            "type": "uid",
+            "targetField": "supplement_name"
+        },
+        "label": {
+            "type": "text"
+        },
+        "description": {
+            "type": "text"
+        },
+        "symbol": {
+            "type": "string"
+        },
+        "is_our_supplement": {
+            "type": "boolean"
+        },
+        "color": {
+            "type": "string"
+        },
+        "border_color": {
+            "type": "string"
+        },
+        "dosage_cortisol": {
+            "type": "string"
+        },
+        "dosage_inflammation": {
+            "type": "string"
+        },
+        "dosage_muscle_damage": {
+            "type": "string"
+        },
+        "dosage_muscle_soreness": {
+            "type": "string"
+        },
+        "dosage_oxidative_stress": {
+            "type": "string"
+        },
+        "dosage_pain": {
+            "type": "string"
+        },
+        "dosage_sleep_quality": {
+            "type": "string"
+        },
+        "grade_score_cortisol": {
+            "type": "string"
+        },
+        "grade_score_inflammation": {
+            "type": "string"
+        },
+        "grade_score_muscle_damage": {
+            "type": "string"
+        },
+        "grade_score_muscle_soreness": {
+            "type": "string"
+        },
+        "grade_score_oxidative_stress": {
+            "type": "string"
+        },
+        "grade_score_pain": {
+            "type": "string"
+        },
+        "grade_score_sleep_quality": {
+            "type": "string"
+        },
+        "linear_score_cortisol": {
+            "type": "integer"
+        },
+        "linear_score_inflammation": {
+            "type": "integer"
+        },
+        "linear_score_muscle_damage": {
+            "type": "integer"
+        },
+        "linear_score_muscle_soreness": {
+            "type": "integer"
+        },
+        "linear_score_oxidative_stress": {
+            "type": "integer"
+        },
+        "linear_score_pain": {
+            "type": "integer"
+        },
+        "linear_score_sleep_quality": {
+            "type": "integer"
+        },
+        "max_cortisol": {
+            "type": "integer"
+        },
+        "max_inflammation": {
+            "type": "integer"
+        },
+        "max_muscle_damage": {
+            "type": "integer"
+        },
+        "max_muscle_soreness": {
+            "type": "integer"
+        },
+        "max_oxidative_stress": {
+            "type": "integer"
+        },
+        "max_pain": {
+            "type": "integer"
+        },
+        "max_sleep_quality": {
+            "type": "integer"
+        },
+        "sum_cortisol": {
+            "type": "integer"
+        },
+        "sum_cortisol_non_rollup": {
+            "type": "integer"
+        },
+        "sum_inflammation": {
+            "type": "integer"
+        },
+        "sum_inflammation_non_rollup": {
+            "type": "integer"
+        },
+        "sum_muscle_damage_participants": {
+            "type": "integer"
+        },
+        "sum_muscle_soreness": {
+            "type": "integer"
+        },
+        "sum_muscle_soreness_participants": {
+            "type": "integer"
+        },
+        "sum_muscle_soreness_non_rollup": {
+            "type": "integer"
+        },
+        "sum_oxidative_stress": {
+            "type": "integer"
+        },
+        "sum_oxidative_stress_non_rollup": {
+            "type": "integer"
+        },
+        "sum_pain": {
+            "type": "integer"
+        },
+        "sum_pain_non_rollup": {
+            "type": "integer"
+        },
+        "sum_participants_cortisol": {
+            "type": "integer"
+        },
+        "sum_participants_inflammation": {
+            "type": "integer"
+        },
+        "sum_participants_oxidative_stress": {
+            "type": "integer"
+        },
+        "sum_participants_pain": {
+            "type": "integer"
+        },
+        "sum_participants_sleep_quality": {
+            "type": "integer"
+        },
+        "sum_sleep_quality": {
+            "type": "integer"
+        },
+        "sum_sleep_quality_non_rollup": {
+            "type": "integer"
+        },
+        "sum_studies_cortisol": {
+            "type": "integer"
+        },
+        "sum_studies_inflammation": {
+            "type": "integer"
+        },
+        "sum_studies_muscle_damage": {
+            "type": "integer"
+        },
+        "sum_studies_muscle_soreness": {
+            "type": "integer"
+        },
+        "sum_studies_oxidative_stress": {
+            "type": "integer"
+        },
+        "sum_studies_pain": {
+            "type": "integer"
+        },
+        "sum_studies_sleep_quality": {
+            "type": "integer"
+        },
+        "tldr_cortisol": {
+            "type": "text"
+        },
+        "tldr_inflammation": {
+            "type": "text"
+        },
+        "tldr_muscle_damage": {
+            "type": "text"
+        },
+        "tldr_muscle_soreness": {
+            "type": "text"
+        },
+        "tldr_oxidative_stress": {
+            "type": "text"
+        },
+        "tldr_pain": {
+            "type": "text"
+        },
+        "tldr_sleep_quality": {
+            "type": "text"
+        },
+        "stats": {
+            "type": "string"
+        },
+        "ingredients": {
+            "type": "integer"
+        }
+    }
+}

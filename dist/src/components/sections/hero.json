@@ -1,0 +1,18 @@
+{
+    "collectionName": "components_sections_heroes",
+    "info": {
+        "displayName": "Hero",
+        "description": ""
+    },
+    "options": {},
+    "attributes": {
+        "title": {
+            "type": "string",
+            "default": "Exercise Recovery, We Solved It!"
+        },
+        "subtitle": {
+            "type": "text",
+            "default": "Backed by 1,500+ human studies, our formula is scientifically proven to optimize recovery."
+        }
+    }
+}

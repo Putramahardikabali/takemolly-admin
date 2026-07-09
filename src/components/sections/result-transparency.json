@@ -1,0 +1,39 @@
+{
+  "collectionName": "components_sections_result_transparencies",
+  "info": {
+    "displayName": "Result Transparency",
+    "icon": "shield"
+  },
+  "options": {},
+  "attributes": {
+    "title": {
+      "type": "string",
+      "default": "{Building Trust} Through Transparency:"
+    },
+    "subtitle": {
+      "type": "string",
+      "default": "How We {Built Our Grading System}"
+    },
+    "content_title": {
+      "type": "string",
+      "default": "Our 1,500-Study Database"
+    },
+    "content_description": {
+      "type": "text",
+      "default": "Our supplement ratings are based on evidence drawn from 1,500 placebo-controlled human studies published in peer-reviewed journals. Within that research, about 200 supplements showed measurable benefits, risks, or both."
+    },
+    "button_label": {
+      "type": "string",
+      "default": "Our Method"
+    },
+    "button_url": {
+      "type": "string",
+      "default": "/how-we-did-it"
+    },
+    "media_file": {
+      "type": "media",
+      "multiple": false,
+      "allowedTypes": ["images", "videos", "files"]
+    }
+  }
+}

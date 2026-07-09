@@ -1,0 +1,30 @@
+{
+  "collectionName": "components_sections_business_faqs",
+  "info": {
+    "displayName": "FAQ Section",
+    "icon": "question-circle"
+  },
+  "attributes": {
+    "title": {
+      "type": "string",
+      "default": "Frequently Asked Questions"
+    },
+    "items": {
+      "type": "component",
+      "repeatable": true,
+      "component": "elements.business-faq-item"
+    },
+    "contact_title": {
+      "type": "string",
+      "default": "Still have questions? Reach us via"
+    },
+    "email_text": {
+      "type": "text",
+      "default": "Email"
+    },
+    "whatsapp_text": {
+      "type": "text",
+      "default": "WhatsApp"
+    }
+  }
+}

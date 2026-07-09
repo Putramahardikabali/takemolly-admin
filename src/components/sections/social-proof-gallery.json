@@ -1,0 +1,21 @@
+{
+  "collectionName": "components_sections_social_proof_galleries",
+  "info": {
+    "displayName": "social-proof-gallery",
+    "icon": "picture"
+  },
+  "options": {},
+  "attributes": {
+    "title": {
+      "type": "string"
+    },
+    "subtitle": {
+      "type": "string"
+    },
+    "items": {
+      "type": "component",
+      "repeatable": true,
+      "component": "elements.social-proof-item"
+    }
+  }
+}

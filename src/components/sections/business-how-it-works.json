@@ -1,0 +1,28 @@
+{
+  "collectionName": "components_sections_business_how_it_works",
+  "info": {
+    "displayName": "How It Works",
+    "icon": "list-ol"
+  },
+  "attributes": {
+    "title": {
+      "type": "string"
+    },
+    "subtitle": {
+      "type": "text"
+    },
+    "signup_text": {
+      "type": "text",
+      "default": "Sign up"
+    },
+    "chat_text": {
+      "type": "text",
+      "default": "Chat with us"
+    },
+    "steps": {
+      "type": "component",
+      "repeatable": true,
+      "component": "elements.business-step"
+    }
+  }
+}

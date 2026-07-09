@@ -1,0 +1,157 @@
+{
+  "kind": "collectionType",
+  "collectionName": "research_papers",
+  "info": {
+    "singularName": "research-paper",
+    "pluralName": "research-papers",
+    "displayName": "Research Paper",
+    "description": ""
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "URL": {
+      "type": "string"
+    },
+    "Title": {
+      "type": "string"
+    },
+    "Label": {
+      "type": "string"
+    },
+    "Product": {
+      "type": "string"
+    },
+    "Supplement": {
+      "type": "string"
+    },
+    "Year": {
+      "type": "string"
+    },
+    "TLDR": {
+      "type": "text"
+    },
+    "Effect": {
+      "type": "string"
+    },
+    "Area": {
+      "type": "string"
+    },
+    "BodyType": {
+      "type": "string"
+    },
+    "Age": {
+      "type": "string"
+    },
+    "Confidence": {
+      "type": "string"
+    },
+    "AMEND": {
+      "type": "boolean",
+      "default": false
+    },
+    "FitnessCleaning": {
+      "type": "boolean",
+      "default": false
+    },
+    "CortisolExerciseCleaning": {
+      "type": "boolean",
+      "default": false
+    },
+    "MetaChecked": {
+      "type": "boolean",
+      "default": false
+    },
+    "NULL": {
+      "type": "boolean",
+      "default": false
+    },
+    "FundingNotes": {
+      "type": "text"
+    },
+    "Source": {
+      "type": "text"
+    },
+    "CreatedTime": {
+      "type": "string"
+    },
+    "LastEditedTime": {
+      "type": "string"
+    },
+    "FilesAndMedia": {
+      "type": "string"
+    },
+    "NumberOfParticipants": {
+      "type": "integer"
+    },
+    "ParticipantsCortisol": {
+      "type": "integer"
+    },
+    "ParticipantsInflammation": {
+      "type": "integer"
+    },
+    "ParticipantsMuscleDamage": {
+      "type": "integer"
+    },
+    "ParticipantsMuscleSoreness": {
+      "type": "integer"
+    },
+    "ParticipantsOxidativeStress": {
+      "type": "integer"
+    },
+    "ParticipantsPain": {
+      "type": "integer"
+    },
+    "ParticipantsSleepQuality": {
+      "type": "integer"
+    },
+    "Participants": {
+      "type": "text"
+    },
+    "StudiesCortisol": {
+      "type": "integer"
+    },
+    "StudiesInflammation": {
+      "type": "integer"
+    },
+    "StudiesMuscleDamage": {
+      "type": "integer"
+    },
+    "StudiesMuscleSoreness": {
+      "type": "integer"
+    },
+    "StudiesOxidativeStress": {
+      "type": "integer"
+    },
+    "StudiesPain": {
+      "type": "integer"
+    },
+    "StudiesSleepQuality": {
+      "type": "integer"
+    },
+    "RelatedToResults1": {
+      "type": "text"
+    },
+    "RelatedToResults2": {
+      "type": "text"
+    },
+    "Results": {
+      "type": "text"
+    },
+    "Sex": {
+      "type": "string"
+    },
+    "TrialDesign": {
+      "type": "string"
+    },
+    "TrialLength": {
+      "type": "string"
+    },
+    "slug": {
+      "type": "uid",
+      "targetField": "Title"
+    }
+  }
+}

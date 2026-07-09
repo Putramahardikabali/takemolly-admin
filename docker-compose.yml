@@ -1,0 +1,30 @@
+version: "3.8"
+
+services:
+  db:
+    image: mysql:8.0
+    container_name: strapi-mysql
+    restart: always
+    environment:
+      MYSQL_DATABASE: strapi
+      MYSQL_USER: strapi
+      MYSQL_PASSWORD: strapipass
+      MYSQL_ROOT_PASSWORD: rootpass
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+
+  strapi:
+    build: .
+    container_name: strapi-app
+    restart: always
+    env_file:
+      - .env
+    ports:
+      - "1337:1337"
+    depends_on:
+      - db
+
+volumes:
+  mysql_data:

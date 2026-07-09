@@ -1,0 +1,30 @@
+{
+    "kind": "singleType",
+    "collectionName": "social_proof_pages",
+    "info": {
+        "singularName": "social-proof-page",
+        "pluralName": "social-proof-pages",
+        "displayName": "Page | Social Proof"
+    },
+    "options": {
+        "draftAndPublish": true
+    },
+    "attributes": {
+        "internal_title": {
+            "type": "string",
+            "required": true,
+            "default": "Social Proof Page"
+        },
+        "seo": {
+            "type": "component",
+            "repeatable": false,
+            "component": "shared.seo"
+        },
+        "sections": {
+            "type": "dynamiczone",
+            "components": [
+                "sections.social-proof-gallery"
+            ]
+        }
+    }
+}

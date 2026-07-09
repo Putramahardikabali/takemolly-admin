@@ -1,0 +1,38 @@
+{
+    "kind": "singleType",
+    "collectionName": "landing_pages",
+    "info": {
+        "singularName": "landing-page",
+        "pluralName": "landing-pages",
+        "displayName": "Page | Landing"
+    },
+    "options": {
+        "draftAndPublish": true
+    },
+    "attributes": {
+        "internal_title": {
+            "type": "string",
+            "required": true,
+            "default": "Recovery Max Page"
+        },
+        "seo": {
+            "type": "component",
+            "repeatable": false,
+            "component": "shared.seo"
+        },
+        "sections": {
+            "type": "dynamiczone",
+            "components": [
+                "sections.hero",
+                "sections.biomarkers",
+                "sections.formula",
+                "sections.founder-timeline",
+                "sections.how-it-works",
+                "sections.how-we-did-it",
+                "sections.results-database",
+                "sections.athletes",
+                "sections.why-better"
+            ]
+        }
+    }
+}

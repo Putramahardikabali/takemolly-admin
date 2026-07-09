@@ -1,0 +1,33 @@
+{
+  "collectionName": "components_elements_timeline_cards",
+  "info": {
+    "displayName": "Timeline Card",
+    "icon": "calendar",
+    "description": "Event cards for the founder's journey slider"
+  },
+  "options": {},
+  "attributes": {
+    "year": {
+      "type": "string",
+      "required": true,
+      "description": "The year displayed (e.g., 2020)"
+    },
+    "title": {
+      "type": "string",
+      "required": true,
+      "description": "The headline of the event (e.g., Testicular Cancer)"
+    },
+    "description": {
+      "type": "text",
+      "required": true,
+      "description": "The body text describing the event"
+    },
+    "image": {
+      "type": "media",
+      "multiple": false,
+      "allowedTypes": ["images"],
+      "required": true,
+      "description": "The photo associated with this milestone"
+    }
+  }
+}

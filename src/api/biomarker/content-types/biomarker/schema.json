@@ -1,0 +1,36 @@
+{
+  "kind": "collectionType",
+  "collectionName": "biomarkers",
+  "info": {
+    "singularName": "biomarker",
+    "pluralName": "biomarkers",
+    "displayName": "Biomarker"
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "title": {
+      "type": "string",
+      "required": true
+    },
+    "slug": {
+      "type": "uid",
+      "targetField": "title",
+      "required": true
+    },
+    "description": {
+      "type": "text"
+    },
+    "icon": {
+      "type": "media",
+      "multiple": false,
+      "allowedTypes": ["images"]
+    },
+    "order_column": {
+      "type": "integer",
+      "default": 0
+    }
+  }
+}

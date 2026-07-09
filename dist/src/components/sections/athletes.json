@@ -1,0 +1,22 @@
+{
+    "collectionName": "components_sections_athletes",
+    "info": {
+        "displayName": "Athletes Video Slider",
+        "description": "Slider showing athletes and their recovery stories"
+    },
+    "attributes": {
+        "title": {
+            "type": "string",
+            "default": "Real {People}. Real {Impact}"
+        },
+        "description": {
+            "type": "text",
+            "default": "What They’re Saying"
+        },
+        "slides": {
+            "type": "component",
+            "repeatable": true,
+            "component": "elements.athlete-slide"
+        }
+    }
+}

@@ -1,0 +1,33 @@
+{
+  "collectionName": "components_elements_step_items",
+  "info": {
+    "displayName": "Step Item",
+    "icon": "orderedList",
+    "description": "Individual steps for the 'How it Works' section"
+  },
+  "options": {},
+  "attributes": {
+    "title": {
+      "type": "string",
+      "required": true,
+      "description": "The headline of the step (e.g., Protect)"
+    },
+    "description": {
+      "type": "text",
+      "required": true,
+      "description": "Short summary text"
+    },
+    "modal_title": {
+      "type": "string"
+    },
+    "modal_content": {
+      "type": "richtext",
+      "description": "Detailed text that appears when clicking 'Learn More'"
+    },
+    "supplements": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::supplement.supplement"
+    }
+  }
+}

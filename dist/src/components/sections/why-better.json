@@ -1,0 +1,25 @@
+{
+    "collectionName": "components_sections_why_betters",
+    "info": {
+        "displayName": "Why Better Section"
+    },
+    "attributes": {
+        "title": {
+            "type": "string",
+            "default": "There's a reason your supplements aren't working"
+        },
+        "subtitle": {
+            "type": "string",
+            "default": "You're most likely missing one of three things, that's where we come in"
+        },
+        "features": {
+            "type": "component",
+            "repeatable": true,
+            "component": "elements.feature-card"
+        },
+        "footer_text": {
+            "type": "text",
+            "default": "BPOM-approved and made in a GMP facility, every batch goes through third-party testing to guarantee what's on the label is exactly what's inside"
+        }
+    }
+}

@@ -1,0 +1,16 @@
+{
+  "collectionName": "components_sections_formulas",
+  "info": {
+    "displayName": "Formula Section"
+  },
+  "attributes": {
+    "title": {
+      "type": "string",
+      "default": "The Game Changers in Recovery"
+    },
+    "description": {
+      "type": "text",
+      "default": "To build the most comprehensive recovery stack, we meticulously reviewed hundreds of supplements using AI and big data."
+    }
+  }
+}

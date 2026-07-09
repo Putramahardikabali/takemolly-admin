@@ -1,0 +1,21 @@
+{
+  "collectionName": "components_sections_business_product_pricings",
+  "info": {
+    "displayName": "Product Pricing",
+    "icon": "shopping-cart"
+  },
+  "attributes": {
+    "title": {
+      "type": "string"
+    },
+    "description": {
+      "type": "string",
+      "default": "Multi-Box or Single Pack"
+    },
+    "products": {
+      "type": "component",
+      "repeatable": true,
+      "component": "elements.business-product-card"
+    }
+  }
+}

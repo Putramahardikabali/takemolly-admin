@@ -1,0 +1,28 @@
+{
+  "collectionName": "components_elements_business_benefit_items",
+  "info": {
+    "displayName": "Benefit Item",
+    "icon": "star"
+  },
+  "options": {},
+  "attributes": {
+    "icon": {
+      "type": "media",
+      "multiple": false,
+      "allowedTypes": ["images"],
+      "required": true
+    },
+    "title": {
+      "type": "string",
+      "required": true
+    },
+    "description": {
+      "type": "text",
+      "required": true
+    },
+    "accent_color": {
+      "type": "string",
+      "help": "Hex code for the icon background (e.g. #FFA0A0)"
+    }
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "kind": "singleType",
+  "collectionName": "contact_pages",
+  "info": {
+    "singularName": "contact-page",
+    "pluralName": "contact-pages",
+    "displayName": "Page | Contact",
+    "description": "Content management for the Contact Us page"
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "attributes": {
+    "internal_title": {
+      "type": "string",
+      "required": true,
+      "default": "Contact Page"
+    },
+    "seo": {
+      "type": "component",
+      "repeatable": false,
+      "component": "shared.seo"
+    },
+    "sections": {
+      "type": "dynamiczone",
+      "components": [
+        "sections.contact-form"
+      ]
+    }
+  }
+}

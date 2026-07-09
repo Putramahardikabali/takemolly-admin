@@ -1,0 +1,66 @@
+{
+    "collectionName": "components_sections_contact_forms",
+    "info": {
+        "displayName": "contact-form",
+        "icon": "envelope"
+    },
+    "options": {},
+    "attributes": {
+        "heading": {
+            "type": "string",
+            "default": "Contact Us"
+        },
+        "subtext": {
+            "type": "text",
+            "default": "Someone from our team will be in touch within the hour during business times, and as soon as possible outside business hours."
+        },
+        "first_name_label": {
+            "type": "string",
+            "default": "First Name"
+        },
+        "first_name_placeholder": {
+            "type": "string",
+            "default": "e.g Jon"
+        },
+        "email_label": {
+            "type": "string",
+            "default": "Email Address"
+        },
+        "email_placeholder": {
+            "type": "string",
+            "default": "e.g jonmail@email.com"
+        },
+        "message_label": {
+            "type": "string",
+            "default": "Message"
+        },
+        "message_placeholder": {
+            "type": "string",
+            "default": "Type your message here..."
+        },
+        "submit_button_text": {
+            "type": "string",
+            "default": "Submit"
+        },
+        "thank_you_heading": {
+            "type": "string",
+            "default": "We appreciate your interest!"
+        },
+        "thank_you_subtext": {
+            "type": "text",
+            "default": "we've received your message and will get back to you shortly."
+        },
+        "business_hours_label": {
+            "type": "string",
+            "default": "Business Hours"
+        },
+        "business_hours_days": {
+            "type": "string",
+            "default": "MONDAY - FRIDAY"
+        },
+        "business_hours_time": {
+            "type": "string",
+            "default": "10AM - 5PM WITA (GMT+8)"
+        }
+    }
+}

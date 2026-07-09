@@ -1,0 +1,32 @@
+{
+    "collectionName": "components_elements_business_testimonial_slides",
+    "info": {
+        "displayName": "Testimonial Slide",
+        "icon": "quote"
+    },
+    "options": {},
+    "attributes": {
+        "quote": {
+            "type": "text",
+            "required": true
+        },
+        "author_name": {
+            "type": "string",
+            "required": true
+        },
+        "author_role": {
+            "type": "string",
+            "default": "Gym Owner"
+        },
+        "author_avatar": {
+            "type": "media",
+            "multiple": false,
+            "allowedTypes": ["images"]
+        },
+        "company_logo": {
+            "type": "media",
+            "multiple": false,
+            "allowedTypes": ["images"]
+        }
+    }
+}

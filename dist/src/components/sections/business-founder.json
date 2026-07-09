@@ -1,0 +1,26 @@
+{
+    "collectionName": "components_sections_business_founders",
+    "info": {
+        "displayName": "Founder Section",
+        "icon": "user"
+    },
+    "attributes": {
+        "title": {
+            "type": "string"
+        },
+        "description": {
+            "type": "text"
+        },
+        "founder_image": {
+            "type": "media",
+            "multiple": false
+        },
+        "video_url": {
+            "type": "string"
+        },
+        "button_text": {
+            "type": "string",
+            "default": "Watch The Video"
+        }
+    }
+}

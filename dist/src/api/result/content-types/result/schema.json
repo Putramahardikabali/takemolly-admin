@@ -1,0 +1,50 @@
+{
+    "kind": "collectionType",
+    "collectionName": "results",
+    "info": {
+        "singularName": "result",
+        "pluralName": "results",
+        "displayName": "Result"
+    },
+    "options": { "draftAndPublish": true },
+    "content-manager": {
+        "settings": { "mainField": "title" }
+    },
+    "attributes": {
+        "title": { "type": "text" },
+        "product": { "type": "string" },
+        "researchPapers": {
+            "type": "relation",
+            "relation": "oneToMany",
+            "target": "api::research-paper.research-paper"
+        },
+        "supplements": {
+            "type": "relation",
+            "relation": "oneToMany",
+            "target": "api::supplement.supplement"
+        },
+        "mainTag": { "type": "string" },
+        "subTag": { "type": "string" },
+        "benefit": { "type": "string" },
+        "benefitValue": { "type": "integer" },
+        "oxidativeStressFilter": { "type": "boolean" },
+        "muscleDamageFilter": { "type": "boolean" },
+        "muscleSorenessFilter": { "type": "boolean" },
+        "inflammationFilter": { "type": "boolean" },
+        "painFilter": { "type": "boolean" },
+        "sleepQualityFilter": { "type": "boolean" },
+        "cortisolFilter": { "type": "boolean" },
+        "cortisolCleaning": { "type": "boolean" },
+        "score": { "type": "integer" },
+        "participants": { "type": "integer" },
+        "age": { "type": "integer" },
+        "maxPain": { "type": "integer" },
+        "year": { "type": "integer" },
+        "sex": { "type": "string" },
+        "bodyType": { "type": "string" },
+        "confidence": { "type": "string" },
+        "trialDesign": { "type": "string" },
+        "trialLength": { "type": "string" },
+        "slug": { "type": "uid", "targetField": "title" }
+    }
+}

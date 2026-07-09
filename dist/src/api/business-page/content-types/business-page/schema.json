@@ -1,0 +1,45 @@
+{
+    "kind": "singleType",
+    "collectionName": "business_pages",
+    "info": {
+        "singularName": "business-page",
+        "pluralName": "business-pages",
+        "displayName": "Page | B2B",
+        "description": "Content management for the Business/Partnership landing page"
+    },
+    "options": {
+        "draftAndPublish": true
+    },
+    "attributes": {
+        "internal_title": {
+            "type": "string",
+            "required": true,
+            "default": "B2B Consignment Page"
+        },
+        "seo": {
+            "type": "component",
+            "repeatable": false,
+            "component": "shared.seo"
+        },
+        "sections": {
+            "type": "dynamiczone",
+            "components": [
+                "sections.business-hero",
+                "sections.business-media-marquee",
+                "sections.business-founder",
+                "sections.business-how-it-works",
+                "sections.business-product-pricing",
+                "sections.business-benefits",
+                "sections.business-testimonials",
+                "sections.business-faq"
+            ]
+        },
+        "navbar_cta_override": {
+            "type": "string",
+            "default": "Order Now"
+        },
+        "navbar_cta_link": {
+            "type": "string"
+        }
+    }
+}

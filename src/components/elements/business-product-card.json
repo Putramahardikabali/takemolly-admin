@@ -1,0 +1,32 @@
+{
+  "collectionName": "components_elements_business_product_cards",
+  "info": {
+    "displayName": "Product Card",
+    "icon": "shopping-bag"
+  },
+  "options": {},
+  "attributes": {
+    "product_image": {
+      "type": "media",
+      "multiple": false,
+      "allowedTypes": ["images"],
+      "required": true
+    },
+    "product_name": {
+      "type": "string",
+      "required": true
+    },
+    "sell_price": {
+      "type": "string",
+      "required": true
+    },
+    "partner_profit": {
+      "type": "string",
+      "required": true
+    },
+    "formula_link": {
+      "type": "string",
+      "default": "/formula"
+    }
+  }
+}

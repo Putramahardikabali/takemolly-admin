@@ -1,0 +1,27 @@
+{
+    "collectionName": "components_elements_business_steps",
+    "info": {
+        "displayName": "Step",
+        "icon": "numbered-list"
+    },
+    "options": {},
+    "attributes": {
+        "step_number": {
+            "type": "string",
+            "required": true
+        },
+        "title": {
+            "type": "string",
+            "required": true
+        },
+        "image": {
+            "type": "media",
+            "multiple": false,
+            "allowedTypes": ["images"]
+        },
+        "description": {
+            "type": "text",
+            "required": true
+        }
+    }
+}

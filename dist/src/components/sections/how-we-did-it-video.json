@@ -1,0 +1,19 @@
+{
+    "collectionName": "components_sections_how_we_did_it_videos",
+    "info": {
+        "displayName": "Videos"
+    },
+    "attributes": {
+        "title": {
+            "type": "string",
+            "default": "{Building Trust} Through Transparency: How We {Built Our Grading System}"
+        },
+        "videos": {
+            "type": "component",
+            "repeatable": true,
+            "min": 3,
+            "max": 3,
+            "component": "elements.how-we-did-it-video-item"
+        }
+    }
+}

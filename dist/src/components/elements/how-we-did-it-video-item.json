@@ -1,0 +1,25 @@
+{
+    "collectionName": "components_elements_how_we_did_it_videos",
+    "info": {
+        "displayName": "Video"
+    },
+    "attributes": {
+        "title": {
+            "type": "string",
+            "default": ""
+        },
+        "description": {
+            "type": "string",
+            "default": ""
+        },
+        "video_url": {
+            "type": "string",
+            "description": "Link to YouTube, Vimeo, or a direct video file URL"
+        },
+        "video_file": {
+            "type": "media",
+            "allowedTypes": ["videos"],
+            "description": "Alternatively, upload the video file directly"
+        }
+    }
+}

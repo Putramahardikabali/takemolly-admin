@@ -4,12 +4,19 @@
     "info": {
         "singularName": "study-icon-setting",
         "pluralName": "study-icon-settings",
-        "displayName": "Study Icon Settings"
+        "displayName": "Study Icon Settings",
+        "description": "Global study confidence icons used on biomarker supplement pages"
     },
     "options": {
         "draftAndPublish": true
     },
+    "pluginOptions": {},
     "attributes": {
+        "internal_title": {
+            "type": "string",
+            "required": true,
+            "default": "Study Icon Settings"
+        },
         "check_evidence_icon": {
             "type": "media",
             "multiple": false,

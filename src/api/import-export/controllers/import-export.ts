@@ -764,15 +764,24 @@ function parseResearchPaperTitles(raw: string): string[] {
   const trimmed = raw.trim();
   if (!trimmed) return [];
 
+  const httpCount = (trimmed.match(/https?:\/\//g) ?? []).length;
+  if (httpCount <= 1) {
+    const singleTitle = stripNotionUrlSuffix(trimmed);
+    return singleTitle ? [singleTitle] : [];
+  }
+
   const parts = trimmed.split(/\)\s*,\s*/);
   const titles = parts
-    .map((part) => stripNotionUrlSuffix(part))
+    .map((part, index) => {
+      const normalized =
+        index < parts.length - 1 && !part.trimEnd().endsWith(")")
+          ? `${part})`
+          : part;
+      return stripNotionUrlSuffix(normalized);
+    })
     .filter(Boolean);
 
-  if (titles.length > 0) return titles;
-
-  const singleTitle = stripNotionUrlSuffix(trimmed);
-  return singleTitle ? [singleTitle] : [];
+  return titles;
 }
 
 function normalizeTitleKey(title: string): string {
@@ -861,17 +870,17 @@ function resolveImportRowKey(record: Record<string, string>): string {
   return `${normalizeTitleKey(resultTitle)}::${normalizeTitleKey(paperTitle)}`;
 }
 
-async function findResultForConfidenceImport(
+async function findResultsForConfidenceImport(
   strapi: any,
   record: Record<string, string>
-): Promise<any | null> {
+): Promise<any[]> {
   const resultTitle = getRowValue(record, "Results").trim();
   const paperTitles = parseResearchPaperTitles(
     getRowValue(record, "Research Papers", "Title")
   );
 
   if (!resultTitle && paperTitles.length === 0) {
-    return null;
+    return [];
   }
 
   const baseQuery = {
@@ -945,15 +954,19 @@ async function findResultForConfidenceImport(
     );
 
     if (narrowed.length > 0) {
-      return narrowed.length === 1 ? narrowed[0] : null;
+      return dedupeResultsByDocumentId(narrowed);
     }
   }
 
   if (uniqueCandidates.length === 1) {
-    return uniqueCandidates[0];
+    return [uniqueCandidates[0]];
   }
 
-  return null;
+  return [];
+}
+
+function dedupeResultsByDocumentId(results: any[]): any[] {
+  return [...new Map(results.map((item) => [item.documentId, item])).values()];
 }
 
 async function importResultConfidenceKeys(
@@ -1090,8 +1103,10 @@ async function importResultConfidenceKeys(
       continue;
     }
 
-    const result = await findResultForConfidenceImport(strapi, record);
-    if (!result) {
+    const matchedResults = dedupeResultsByDocumentId(
+      await findResultsForConfidenceImport(strapi, record)
+    );
+    if (matchedResults.length === 0) {
       const errorReason = "No Result matched this row";
       stats.unmatched++;
       bumpBreakdown(confidenceLabel, "unmatched");
@@ -1107,70 +1122,73 @@ async function importResultConfidenceKeys(
     stats.matched++;
 
     const nextKey = mapping.action === "clear" ? null : mapping.key;
-    const currentKey = normalizeStoredConfidenceKey(result.confidence_key);
     const isClearIntent = nextKey === null;
 
-    if (isClearIntent) {
-      stats.cleared++;
-      bumpBreakdown(confidenceLabel, "cleared");
-    }
+    for (const result of matchedResults) {
+      const currentKey = normalizeStoredConfidenceKey(result.confidence_key);
 
-    if (currentKey === normalizeStoredConfidenceKey(nextKey)) {
-      stats.unchanged++;
-      if (!isClearIntent) {
-        bumpBreakdown(confidenceLabel, "unchanged");
+      if (isClearIntent) {
+        stats.cleared++;
+        bumpBreakdown(confidenceLabel, "cleared");
       }
-      continue;
-    }
 
-    bumpBreakdown(confidenceLabel, "updated");
-    stats.planned_updates = (stats.planned_updates ?? 0) + 1;
+      if (currentKey === normalizeStoredConfidenceKey(nextKey)) {
+        stats.unchanged++;
+        if (!isClearIntent) {
+          bumpBreakdown(confidenceLabel, "unchanged");
+        }
+        continue;
+      }
 
-    if (!apply) {
+      bumpBreakdown(confidenceLabel, "updated");
+      stats.planned_updates = (stats.planned_updates ?? 0) + 1;
+
+      if (!apply) {
+        stats.updated++;
+        continue;
+      }
+
+      const documentId = result.documentId as string | undefined;
+      if (!documentId) {
+        stats.write_failed = (stats.write_failed ?? 0) + 1;
+        const errorReason =
+          "Result missing documentId — cannot update published Result in Strapi v5";
+        errors.push({ row: rowLabel, error: errorReason });
+        logConfidenceImport(strapi, "write failed", {
+          row: rowNumber,
+          documentId: null,
+          result: resultTitle,
+          old_confidence_key: currentKey,
+          new_confidence_key: nextKey,
+          success: false,
+          error: errorReason,
+        });
+        continue;
+      }
+
+      const writeResult = await updateResultConfidenceKey(
+        strapi,
+        documentId,
+        nextKey,
+        {
+          rowNumber,
+          resultTitle,
+          currentKey,
+        }
+      );
+
+      if (!writeResult.success) {
+        stats.write_failed = (stats.write_failed ?? 0) + 1;
+        errors.push({
+          row: rowLabel,
+          error: writeResult.error ?? "Unknown update error",
+        });
+        continue;
+      }
+
       stats.updated++;
-      continue;
+      stats.write_success = (stats.write_success ?? 0) + 1;
     }
-
-    const documentId = result.documentId as string | undefined;
-    if (!documentId) {
-      stats.write_failed = (stats.write_failed ?? 0) + 1;
-      const errorReason =
-        "Result missing documentId — cannot update published Result in Strapi v5";
-      errors.push({ row: rowLabel, error: errorReason });
-      logConfidenceImport(strapi, "write failed", {
-        row: rowNumber,
-        documentId: null,
-        result: resultTitle,
-        old_confidence_key: currentKey,
-        new_confidence_key: nextKey,
-        success: false,
-        error: errorReason,
-      });
-      continue;
-    }
-
-    const writeResult = await updateResultConfidenceKey(
-      strapi,
-      documentId,
-      nextKey,
-      {
-        rowNumber,
-        resultTitle,
-        currentKey,
-      }
-    );
-
-    if (!writeResult.success) {
-      stats.write_failed = (stats.write_failed ?? 0) + 1;
-      errors.push({
-        row: rowLabel,
-        error: writeResult.error ?? "Unknown update error",
-      });
-      continue;
-    }
-
-    stats.updated++;
-    stats.write_success = (stats.write_success ?? 0) + 1;
   }
 
   const verification = apply

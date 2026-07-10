@@ -547,17 +547,25 @@ function stripNotionUrlSuffix(value) {
     return value.replace(/\s*\(https?:\/\/[^\)]*\)?$/i, "").trim();
 }
 function parseResearchPaperTitles(raw) {
+    var _a;
     const trimmed = raw.trim();
     if (!trimmed)
         return [];
+    const httpCount = ((_a = trimmed.match(/https?:\/\//g)) !== null && _a !== void 0 ? _a : []).length;
+    if (httpCount <= 1) {
+        const singleTitle = stripNotionUrlSuffix(trimmed);
+        return singleTitle ? [singleTitle] : [];
+    }
     const parts = trimmed.split(/\)\s*,\s*/);
     const titles = parts
-        .map((part) => stripNotionUrlSuffix(part))
+        .map((part, index) => {
+        const normalized = index < parts.length - 1 && !part.trimEnd().endsWith(")")
+            ? `${part})`
+            : part;
+        return stripNotionUrlSuffix(normalized);
+    })
         .filter(Boolean);
-    if (titles.length > 0)
-        return titles;
-    const singleTitle = stripNotionUrlSuffix(trimmed);
-    return singleTitle ? [singleTitle] : [];
+    return titles;
 }
 function normalizeTitleKey(title) {
     return title.toLowerCase().trim();
@@ -634,12 +642,12 @@ function resolveImportRowKey(record) {
         "";
     return `${normalizeTitleKey(resultTitle)}::${normalizeTitleKey(paperTitle)}`;
 }
-async function findResultForConfidenceImport(strapi, record) {
+async function findResultsForConfidenceImport(strapi, record) {
     var _a;
     const resultTitle = getRowValue(record, "Results").trim();
     const paperTitles = parseResearchPaperTitles(getRowValue(record, "Research Papers", "Title"));
     if (!resultTitle && paperTitles.length === 0) {
-        return null;
+        return [];
     }
     const baseQuery = {
         populate: { researchPapers: { fields: ["id", "Title"] } },
@@ -699,13 +707,16 @@ async function findResultForConfidenceImport(strapi, record) {
             return ((_a = result.researchPapers) !== null && _a !== void 0 ? _a : []).some((paper) => paperTitles.some((title) => { var _a; return ((_a = paper.Title) !== null && _a !== void 0 ? _a : "").trim().toLowerCase() === title.toLowerCase(); }));
         });
         if (narrowed.length > 0) {
-            return narrowed.length === 1 ? narrowed[0] : null;
+            return dedupeResultsByDocumentId(narrowed);
         }
     }
     if (uniqueCandidates.length === 1) {
-        return uniqueCandidates[0];
+        return [uniqueCandidates[0]];
     }
-    return null;
+    return [];
+}
+function dedupeResultsByDocumentId(results) {
+    return [...new Map(results.map((item) => [item.documentId, item])).values()];
 }
 async function importResultConfidenceKeys(strapi, records, apply) {
     var _a, _b, _c, _d, _e, _f, _g, _h, _j;
@@ -809,8 +820,8 @@ async function importResultConfidenceKeys(strapi, records, apply) {
             });
             continue;
         }
-        const result = await findResultForConfidenceImport(strapi, record);
-        if (!result) {
+        const matchedResults = dedupeResultsByDocumentId(await findResultsForConfidenceImport(strapi, record));
+        if (matchedResults.length === 0) {
             const errorReason = "No Result matched this row";
             stats.unmatched++;
             bumpBreakdown(confidenceLabel, "unmatched");
@@ -824,56 +835,58 @@ async function importResultConfidenceKeys(strapi, records, apply) {
         }
         stats.matched++;
         const nextKey = mapping.action === "clear" ? null : mapping.key;
-        const currentKey = normalizeStoredConfidenceKey(result.confidence_key);
         const isClearIntent = nextKey === null;
-        if (isClearIntent) {
-            stats.cleared++;
-            bumpBreakdown(confidenceLabel, "cleared");
-        }
-        if (currentKey === normalizeStoredConfidenceKey(nextKey)) {
-            stats.unchanged++;
-            if (!isClearIntent) {
-                bumpBreakdown(confidenceLabel, "unchanged");
+        for (const result of matchedResults) {
+            const currentKey = normalizeStoredConfidenceKey(result.confidence_key);
+            if (isClearIntent) {
+                stats.cleared++;
+                bumpBreakdown(confidenceLabel, "cleared");
             }
-            continue;
-        }
-        bumpBreakdown(confidenceLabel, "updated");
-        stats.planned_updates = ((_b = stats.planned_updates) !== null && _b !== void 0 ? _b : 0) + 1;
-        if (!apply) {
+            if (currentKey === normalizeStoredConfidenceKey(nextKey)) {
+                stats.unchanged++;
+                if (!isClearIntent) {
+                    bumpBreakdown(confidenceLabel, "unchanged");
+                }
+                continue;
+            }
+            bumpBreakdown(confidenceLabel, "updated");
+            stats.planned_updates = ((_b = stats.planned_updates) !== null && _b !== void 0 ? _b : 0) + 1;
+            if (!apply) {
+                stats.updated++;
+                continue;
+            }
+            const documentId = result.documentId;
+            if (!documentId) {
+                stats.write_failed = ((_c = stats.write_failed) !== null && _c !== void 0 ? _c : 0) + 1;
+                const errorReason = "Result missing documentId — cannot update published Result in Strapi v5";
+                errors.push({ row: rowLabel, error: errorReason });
+                logConfidenceImport(strapi, "write failed", {
+                    row: rowNumber,
+                    documentId: null,
+                    result: resultTitle,
+                    old_confidence_key: currentKey,
+                    new_confidence_key: nextKey,
+                    success: false,
+                    error: errorReason,
+                });
+                continue;
+            }
+            const writeResult = await updateResultConfidenceKey(strapi, documentId, nextKey, {
+                rowNumber,
+                resultTitle,
+                currentKey,
+            });
+            if (!writeResult.success) {
+                stats.write_failed = ((_d = stats.write_failed) !== null && _d !== void 0 ? _d : 0) + 1;
+                errors.push({
+                    row: rowLabel,
+                    error: (_e = writeResult.error) !== null && _e !== void 0 ? _e : "Unknown update error",
+                });
+                continue;
+            }
             stats.updated++;
-            continue;
+            stats.write_success = ((_f = stats.write_success) !== null && _f !== void 0 ? _f : 0) + 1;
         }
-        const documentId = result.documentId;
-        if (!documentId) {
-            stats.write_failed = ((_c = stats.write_failed) !== null && _c !== void 0 ? _c : 0) + 1;
-            const errorReason = "Result missing documentId — cannot update published Result in Strapi v5";
-            errors.push({ row: rowLabel, error: errorReason });
-            logConfidenceImport(strapi, "write failed", {
-                row: rowNumber,
-                documentId: null,
-                result: resultTitle,
-                old_confidence_key: currentKey,
-                new_confidence_key: nextKey,
-                success: false,
-                error: errorReason,
-            });
-            continue;
-        }
-        const writeResult = await updateResultConfidenceKey(strapi, documentId, nextKey, {
-            rowNumber,
-            resultTitle,
-            currentKey,
-        });
-        if (!writeResult.success) {
-            stats.write_failed = ((_d = stats.write_failed) !== null && _d !== void 0 ? _d : 0) + 1;
-            errors.push({
-                row: rowLabel,
-                error: (_e = writeResult.error) !== null && _e !== void 0 ? _e : "Unknown update error",
-            });
-            continue;
-        }
-        stats.updated++;
-        stats.write_success = ((_f = stats.write_success) !== null && _f !== void 0 ? _f : 0) + 1;
     }
     const verification = apply
         ? await countPublishedResultConfidenceKeys(strapi)

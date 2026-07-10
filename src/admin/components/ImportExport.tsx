@@ -20,8 +20,14 @@ import { Upload, Download, Database, Information, Cross } from "@strapi/icons";
 
 interface ImportStats {
   total: number;
-  success: number;
-  failed: number;
+  success?: number;
+  failed?: number;
+  matched?: number;
+  updated?: number;
+  unchanged?: number;
+  cleared?: number;
+  unmatched?: number;
+  duplicates?: number;
 }
 
 interface ImportError {
@@ -32,6 +38,7 @@ interface ImportError {
 interface ImportResult {
   success: boolean;
   message: string;
+  dryRun?: boolean;
   stats?: ImportStats;
   errors?: ImportError[];
 }
@@ -57,6 +64,11 @@ https://pubmed.ncbi.nlm.nih.gov/26502953,No,,"Anxiety,Cognition,Mood,Stress",,No
 
   results: `Results,Age,Benefit,Benefit Value,Body Type,Confidence,Cortisol Cleaning,Cortisol Filter,Created time,Inflammation Filter,Last edited time,Main Tag,Max Pain,Muscle Damage Filter,Muscle Soreness Filter,Oxidative Stress Filter,Pain Filter,Participants,Product,Score,Sex,Sleep Quality Filter,Sub Tag,Trial Design,Trial Length,Year,Supplements,Research Papers
 Participants who,18,Positive,1,,✅,No,0,"June 6, 2023 14:08",0,"April 18, 2025 16:16",Anxiety,Rhodiola Rosea,0,0,0,0,80,,1,Both sexes,0,,Randomized controlled trial,1-2 Weeks,2024,"3520,3522","36208,36233"
+`,
+
+  "result-confidence-key": `Results,Research Papers,Confidence
+Participants who took the Rhodiola rosea L. extract reported a significant decrease in anxiety,The Effects of Rhodiola rosea L. Extract on Anxiety, Stress, Cognition and Other Mood Symptoms,✅
+Participants who took the Rhodiola rosea L. extract reported a significant decrease in anxiety,The Effects of Rhodiola rosea L. Extract on Anxiety, Stress, Cognition and Other Mood Symptoms,🗒️
 `,
 };
 
@@ -85,7 +97,16 @@ export default function SupplementImportExport() {
       label: "Results",
       description: "Research findings and outcomes",
     },
+    {
+      id: "result-confidence-key",
+      label: "Result confidence_key",
+      description:
+        "Update-only import for Result.confidence_key from Results CSV columns",
+    },
   ]);
+  const [importAction, setImportAction] = useState<"dry-run" | "apply">(
+    "dry-run",
+  );
   const [showErrors, setShowErrors] = useState<boolean>(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -103,6 +124,13 @@ export default function SupplementImportExport() {
       const formData = new FormData();
       formData.append("file", file);
       formData.append("collection", selectedCollection);
+      formData.append(
+        "action",
+        selectedCollection === "result-confidence-key" ||
+        selectedCollection === "research-paper-confidence-key"
+          ? importAction
+          : "apply",
+      );
 
       const response = await fetch(`${API_BASE}/import`, {
         method: "POST",
@@ -184,7 +212,12 @@ export default function SupplementImportExport() {
 
   const handleCollectionChange = (value: string | number) => {
     setSelectedCollection(String(value));
+    setImportAction("dry-run");
   };
+
+  const isConfidenceKeyImport =
+    selectedCollection === "result-confidence-key" ||
+    selectedCollection === "research-paper-confidence-key";
 
   return (
     <Box background="neutral100" padding={8}>
@@ -260,10 +293,27 @@ export default function SupplementImportExport() {
             </Flex>
 
             <Typography variant="epsilon" textColor="neutral600">
-              Upload a CSV file to import or update records in the selected
-              collection. Existing records will be updated based on their unique
-              identifiers.
+              {isConfidenceKeyImport
+                ? "Upload a Results-format CSV. Confidence emoji values (✅ ⭐ 🎓 🚩 🗒️) are mapped automatically to Result.confidence_key enum keys. Empty or 🗒️ clears the icon. Dry-run is the default."
+                : "Upload a CSV file to import or update records in the selected collection. Existing records will be updated based on their unique identifiers."}
             </Typography>
+
+            {isConfidenceKeyImport && (
+              <SingleSelect
+                label="Import mode"
+                value={importAction}
+                onChange={(value) =>
+                  setImportAction(value === "apply" ? "apply" : "dry-run")
+                }
+              >
+                <SingleSelectOption value="dry-run">
+                  Dry-run (preview only)
+                </SingleSelectOption>
+                <SingleSelectOption value="apply">
+                  Apply updates
+                </SingleSelectOption>
+              </SingleSelect>
+            )}
 
             <input
               type="file"
@@ -282,7 +332,13 @@ export default function SupplementImportExport() {
               fullWidth
               onClick={() => fileInputRef.current?.click()}
             >
-              {importing ? "Importing..." : "Choose CSV File"}
+              {importing
+                ? "Importing..."
+                : isConfidenceKeyImport
+                  ? importAction === "apply"
+                    ? "Choose CSV File (Apply)"
+                    : "Choose CSV File (Dry-run)"
+                  : "Choose CSV File"}
             </Button>
           </Flex>
         </Box>
@@ -370,7 +426,7 @@ export default function SupplementImportExport() {
               <Typography>{result.message}</Typography>
 
               {isImportResult(result) && result.stats && (
-                <Flex gap={6} marginTop={2}>
+                <Flex gap={6} marginTop={2} wrap="wrap">
                   <Flex alignItems="center" gap={2}>
                     <Typography variant="epsilon" fontWeight="bold">
                       Total:
@@ -387,42 +443,79 @@ export default function SupplementImportExport() {
                       </Typography>
                     </Box>
                   </Flex>
-                  <Flex alignItems="center" gap={2}>
-                    <Typography variant="epsilon" fontWeight="bold">
-                      Success:
-                    </Typography>
-                    <Box
-                      background={
-                        result.stats.success > 0 ? "success100" : "neutral150"
-                      }
-                      padding={2}
-                      paddingLeft={3}
-                      paddingRight={3}
-                      hasRadius
-                    >
-                      <Typography variant="pi" fontWeight="bold">
-                        {result.stats.success}
-                      </Typography>
-                    </Box>
-                  </Flex>
-                  <Flex alignItems="center" gap={2}>
-                    <Typography variant="epsilon" fontWeight="bold">
-                      Failed:
-                    </Typography>
-                    <Box
-                      background={
-                        result.stats.failed > 0 ? "danger100" : "neutral150"
-                      }
-                      padding={2}
-                      paddingLeft={3}
-                      paddingRight={3}
-                      hasRadius
-                    >
-                      <Typography variant="pi" fontWeight="bold">
-                        {result.stats.failed}
-                      </Typography>
-                    </Box>
-                  </Flex>
+
+                  {typeof result.stats.matched === "number" ? (
+                    <>
+                      {[
+                        ["Matched", result.stats.matched],
+                        ["Updated", result.stats.updated ?? 0],
+                        ["Unchanged", result.stats.unchanged ?? 0],
+                        ["Cleared / no icon", result.stats.cleared ?? 0],
+                        ["Unmatched", result.stats.unmatched ?? 0],
+                        ["Duplicates", result.stats.duplicates ?? 0],
+                      ].map(([label, value]) => (
+                        <Flex key={label} alignItems="center" gap={2}>
+                          <Typography variant="epsilon" fontWeight="bold">
+                            {label}:
+                          </Typography>
+                          <Box
+                            background="neutral150"
+                            padding={2}
+                            paddingLeft={3}
+                            paddingRight={3}
+                            hasRadius
+                          >
+                            <Typography variant="pi" fontWeight="bold">
+                              {value}
+                            </Typography>
+                          </Box>
+                        </Flex>
+                      ))}
+                    </>
+                  ) : (
+                    <>
+                      <Flex alignItems="center" gap={2}>
+                        <Typography variant="epsilon" fontWeight="bold">
+                          Success:
+                        </Typography>
+                        <Box
+                          background={
+                            (result.stats.success ?? 0) > 0
+                              ? "success100"
+                              : "neutral150"
+                          }
+                          padding={2}
+                          paddingLeft={3}
+                          paddingRight={3}
+                          hasRadius
+                        >
+                          <Typography variant="pi" fontWeight="bold">
+                            {result.stats.success ?? 0}
+                          </Typography>
+                        </Box>
+                      </Flex>
+                      <Flex alignItems="center" gap={2}>
+                        <Typography variant="epsilon" fontWeight="bold">
+                          Failed:
+                        </Typography>
+                        <Box
+                          background={
+                            (result.stats.failed ?? 0) > 0
+                              ? "danger100"
+                              : "neutral150"
+                          }
+                          padding={2}
+                          paddingLeft={3}
+                          paddingRight={3}
+                          hasRadius
+                        >
+                          <Typography variant="pi" fontWeight="bold">
+                            {result.stats.failed ?? 0}
+                          </Typography>
+                        </Box>
+                      </Flex>
+                    </>
+                  )}
                 </Flex>
               )}
 

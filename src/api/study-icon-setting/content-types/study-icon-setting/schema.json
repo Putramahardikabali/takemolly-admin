@@ -1,0 +1,34 @@
+{
+  "kind": "singleType",
+  "collectionName": "study_icon_settings",
+  "info": {
+    "singularName": "study-icon-setting",
+    "pluralName": "study-icon-settings",
+    "displayName": "Study Icon Settings"
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "attributes": {
+    "check_evidence_icon": {
+      "type": "media",
+      "multiple": false,
+      "allowedTypes": ["images"]
+    },
+    "star_evidence_icon": {
+      "type": "media",
+      "multiple": false,
+      "allowedTypes": ["images"]
+    },
+    "cap_evidence_icon": {
+      "type": "media",
+      "multiple": false,
+      "allowedTypes": ["images"]
+    },
+    "caution_icon": {
+      "type": "media",
+      "multiple": false,
+      "allowedTypes": ["images"]
+    }
+  }
+}

@@ -878,6 +878,9 @@ export interface ApiResearchPaperResearchPaper
     Area: Schema.Attribute.String;
     BodyType: Schema.Attribute.String;
     Confidence: Schema.Attribute.String;
+    confidence_key: Schema.Attribute.Enumeration<
+      ['strong_evidence', 'moderate_evidence', 'limited_evidence', 'caution']
+    >;
     CortisolExerciseCleaning: Schema.Attribute.Boolean &
       Schema.Attribute.DefaultTo<false>;
     createdAt: Schema.Attribute.DateTime;
@@ -986,6 +989,9 @@ export interface ApiResultResult extends Struct.CollectionTypeSchema {
     benefitValue: Schema.Attribute.Integer;
     bodyType: Schema.Attribute.String;
     confidence: Schema.Attribute.String;
+    confidence_key: Schema.Attribute.Enumeration<
+      ['check_evidence', 'star_evidence', 'cap_evidence', 'caution']
+    >;
     cortisolCleaning: Schema.Attribute.Boolean;
     cortisolFilter: Schema.Attribute.Boolean;
     createdAt: Schema.Attribute.DateTime;
@@ -1089,6 +1095,38 @@ export interface ApiStockistPageStockistPage extends Struct.SingleTypeSchema {
     publishedAt: Schema.Attribute.DateTime;
     sections: Schema.Attribute.DynamicZone<['sections.stockist-locator']>;
     seo: Schema.Attribute.Component<'shared.seo', false>;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
+export interface ApiStudyIconSettingStudyIconSetting
+  extends Struct.SingleTypeSchema {
+  collectionName: 'study_icon_settings';
+  info: {
+    displayName: 'Study Icon Settings';
+    pluralName: 'study-icon-settings';
+    singularName: 'study-icon-setting';
+  };
+  options: {
+    draftAndPublish: true;
+  };
+  attributes: {
+    cap_evidence_icon: Schema.Attribute.Media<'images'>;
+    caution_icon: Schema.Attribute.Media<'images'>;
+    check_evidence_icon: Schema.Attribute.Media<'images'>;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::study-icon-setting.study-icon-setting'
+    > &
+      Schema.Attribute.Private;
+    publishedAt: Schema.Attribute.DateTime;
+    star_evidence_icon: Schema.Attribute.Media<'images'>;
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
@@ -1720,6 +1758,7 @@ declare module '@strapi/strapi' {
       'api::result.result': ApiResultResult;
       'api::social-proof-page.social-proof-page': ApiSocialProofPageSocialProofPage;
       'api::stockist-page.stockist-page': ApiStockistPageStockistPage;
+      'api::study-icon-setting.study-icon-setting': ApiStudyIconSettingStudyIconSetting;
       'api::supplement.supplement': ApiSupplementSupplement;
       'plugin::content-releases.release': PluginContentReleasesRelease;
       'plugin::content-releases.release-action': PluginContentReleasesReleaseAction;

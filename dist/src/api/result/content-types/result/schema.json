@@ -43,6 +43,15 @@
         "sex": { "type": "string" },
         "bodyType": { "type": "string" },
         "confidence": { "type": "string" },
+        "confidence_key": {
+            "type": "enumeration",
+            "enum": [
+                "check_evidence",
+                "star_evidence",
+                "cap_evidence",
+                "caution"
+            ]
+        },
         "trialDesign": { "type": "string" },
         "trialLength": { "type": "string" },
         "slug": { "type": "uid", "targetField": "title" }

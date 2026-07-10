@@ -401,6 +401,108 @@ interface ConfidenceKeyImportStats {
   duplicates: number;
 }
 
+type ConfidenceLabel =
+  | "✅"
+  | "⭐"
+  | "🎓"
+  | "🚩"
+  | "🗒️"
+  | "empty"
+  | "other";
+
+type ConfidenceBreakdownBucket = {
+  updated: number;
+  unchanged: number;
+  cleared: number;
+  unmatched: number;
+  duplicate: number;
+};
+
+type ConfidenceBreakdown = Record<ConfidenceLabel, ConfidenceBreakdownBucket>;
+
+interface ConfidenceImportRowReport {
+  row_number: number;
+  results: string;
+  research_papers_original: string;
+  research_papers_cleaned: string;
+  confidence: string;
+  confidence_label: ConfidenceLabel;
+  mapped_confidence_key: string | null;
+  error_reason?: string;
+  duplicate_type?: "exact" | "conflicting";
+  outcome:
+    | "updated"
+    | "unchanged"
+    | "cleared"
+    | "unmatched"
+    | "duplicate"
+    | "invalid";
+}
+
+interface ConfidenceKeyImportReport {
+  unmatched_rows: ConfidenceImportRowReport[];
+  duplicate_rows: ConfidenceImportRowReport[];
+  breakdown_by_confidence: ConfidenceBreakdown;
+}
+
+const CONFIDENCE_BREAKDOWN_LABELS: ConfidenceLabel[] = [
+  "✅",
+  "⭐",
+  "🎓",
+  "🚩",
+  "🗒️",
+  "empty",
+  "other",
+];
+
+function createEmptyConfidenceBreakdown(): ConfidenceBreakdown {
+  return Object.fromEntries(
+    CONFIDENCE_BREAKDOWN_LABELS.map((label) => [
+      label,
+      { updated: 0, unchanged: 0, cleared: 0, unmatched: 0, duplicate: 0 },
+    ])
+  ) as ConfidenceBreakdown;
+}
+
+function classifyConfidenceLabel(raw: string): ConfidenceLabel {
+  const value = normalizeConfidenceCell(raw);
+  if (!value) return "empty";
+
+  const tokens = value
+    .split(/[,;|/]+/)
+    .map((token) => token.trim())
+    .filter(Boolean);
+  const searchSpace = (tokens.length > 0 ? tokens : [value]).join(" ");
+
+  const hasMemo = confidenceContains(searchSpace, "🗒");
+  const hasFlag = confidenceContains(searchSpace, "🚩");
+  const hasCap = confidenceContains(searchSpace, "🎓");
+  const hasStar = confidenceContainsAny(searchSpace, ["⭐", "★"]);
+  const hasCheck = confidenceContainsAny(searchSpace, ["✅", "✔", "☑"]);
+
+  if (hasFlag) return "🚩";
+  if (hasCap) return "🎓";
+  if (hasStar) return "⭐";
+  if (hasCheck) return "✅";
+  if (hasMemo) return "🗒️";
+  return "other";
+}
+
+function formatCleanedResearchPapers(raw: string): string {
+  const titles = parseResearchPaperTitles(raw);
+  if (titles.length > 0) return titles.join("; ");
+  const single = stripNotionUrlSuffix(raw.trim());
+  return single;
+}
+
+function mappingToNextKey(
+  mapping: ConfidenceMapping
+): string | null | undefined {
+  if (mapping.action === "set") return mapping.key;
+  if (mapping.action === "clear") return null;
+  return undefined;
+}
+
 function getRowValue(
   record: Record<string, string>,
   ...candidates: string[]
@@ -628,6 +730,7 @@ async function importResultConfidenceKeys(
 ): Promise<{
   stats: ConfidenceKeyImportStats;
   errors: Array<{ row: string; error: string }>;
+  report: ConfidenceKeyImportReport;
 }> {
   const stats: ConfidenceKeyImportStats = {
     total: records.length,
@@ -639,6 +742,11 @@ async function importResultConfidenceKeys(
     duplicates: 0,
   };
   const errors: Array<{ row: string; error: string }> = [];
+  const report: ConfidenceKeyImportReport = {
+    unmatched_rows: [],
+    duplicate_rows: [],
+    breakdown_by_confidence: createEmptyConfidenceBreakdown(),
+  };
 
   const rowKeyCounts = new Map<string, number>();
   for (const record of records) {
@@ -654,44 +762,100 @@ async function importResultConfidenceKeys(
   );
 
   const processedRowKeys = new Set<string>();
+  const firstRowMappingByKey = new Map<string, string | null>();
 
-  for (const record of records) {
+  const bumpBreakdown = (
+    label: ConfidenceLabel,
+    bucket: keyof ConfidenceBreakdownBucket
+  ) => {
+    report.breakdown_by_confidence[label][bucket]++;
+  };
+
+  for (let index = 0; index < records.length; index++) {
+    const record = records[index];
+    const rowNumber = index + 2;
     const resultTitle = getRowValue(record, "Results").trim();
     const paperTitleRaw = getRowValue(record, "Research Papers", "Title");
+    const paperTitleCleaned = formatCleanedResearchPapers(paperTitleRaw);
     const confidenceRaw = getRowValue(record, "Confidence", "confidence_key");
-    const rowLabel = resultTitle || paperTitleRaw || "Unknown";
+    const confidenceLabel = classifyConfidenceLabel(confidenceRaw);
+    const rowLabel = `Row ${rowNumber}: ${resultTitle || paperTitleRaw || "Unknown"}`;
     const rowKey = resolveImportRowKey(record);
+    const mapping = mapConfidenceValueToKey(confidenceRaw);
+    const mappedKey = mappingToNextKey(mapping);
+
+    const baseReport = {
+      row_number: rowNumber,
+      results: resultTitle,
+      research_papers_original: paperTitleRaw,
+      research_papers_cleaned: paperTitleCleaned,
+      confidence: confidenceRaw,
+      confidence_label: confidenceLabel,
+      mapped_confidence_key:
+        mappedKey === undefined ? null : mappedKey,
+    };
 
     if (!resultTitle && !paperTitleRaw.trim()) {
+      const errorReason = "Missing Results and Research Papers / Title";
       stats.unmatched++;
-      errors.push({
-        row: rowLabel,
-        error: "Missing Results and Research Papers / Title",
+      bumpBreakdown(confidenceLabel, "unmatched");
+      errors.push({ row: rowLabel, error: errorReason });
+      report.unmatched_rows.push({
+        ...baseReport,
+        outcome: "unmatched",
+        error_reason: errorReason,
       });
       continue;
     }
 
-    if (duplicateRowKeys.has(rowKey)) {
-      if (processedRowKeys.has(rowKey)) {
-        stats.duplicates++;
-        continue;
-      }
+    if (duplicateRowKeys.has(rowKey) && processedRowKeys.has(rowKey)) {
+      const firstMappedKey = firstRowMappingByKey.get(rowKey);
+      const duplicateType: "exact" | "conflicting" =
+        firstMappedKey === mappedKey ? "exact" : "conflicting";
+      const errorReason =
+        duplicateType === "exact"
+          ? "Duplicate row (exact — same Result, paper, and Confidence mapping as first occurrence)"
+          : "Duplicate row (conflicting — same Result and paper but different Confidence mapping than first occurrence)";
+
+      stats.duplicates++;
+      bumpBreakdown(confidenceLabel, "duplicate");
+      errors.push({ row: rowLabel, error: errorReason });
+      report.duplicate_rows.push({
+        ...baseReport,
+        outcome: "duplicate",
+        duplicate_type: duplicateType,
+        error_reason: errorReason,
+      });
+      continue;
     }
 
     processedRowKeys.add(rowKey);
+    if (mappedKey !== undefined) {
+      firstRowMappingByKey.set(rowKey, mappedKey);
+    }
 
-    const mapping = mapConfidenceValueToKey(confidenceRaw);
     if (mapping.action === "invalid") {
+      stats.unmatched++;
+      bumpBreakdown(confidenceLabel, "unmatched");
       errors.push({ row: rowLabel, error: mapping.reason });
+      report.unmatched_rows.push({
+        ...baseReport,
+        outcome: "invalid",
+        error_reason: mapping.reason,
+      });
       continue;
     }
 
     const result = await findResultForConfidenceImport(strapi, record);
     if (!result) {
+      const errorReason = "No Result matched this row";
       stats.unmatched++;
-      errors.push({
-        row: rowLabel,
-        error: "No Result matched this row",
+      bumpBreakdown(confidenceLabel, "unmatched");
+      errors.push({ row: rowLabel, error: errorReason });
+      report.unmatched_rows.push({
+        ...baseReport,
+        outcome: "unmatched",
+        error_reason: errorReason,
       });
       continue;
     }
@@ -700,15 +864,22 @@ async function importResultConfidenceKeys(
 
     const nextKey = mapping.action === "clear" ? null : mapping.key;
     const currentKey = result.confidence_key ?? null;
+    const isClearIntent = nextKey === null;
+
+    if (isClearIntent) {
+      stats.cleared++;
+      bumpBreakdown(confidenceLabel, "cleared");
+    }
 
     if (currentKey === nextKey) {
       stats.unchanged++;
+      if (!isClearIntent) {
+        bumpBreakdown(confidenceLabel, "unchanged");
+      }
       continue;
     }
 
-    if (nextKey === null) {
-      stats.cleared++;
-    }
+    bumpBreakdown(confidenceLabel, "updated");
 
     if (apply) {
       await strapi.entityService.update("api::result.result", result.id, {
@@ -719,7 +890,7 @@ async function importResultConfidenceKeys(
     stats.updated++;
   }
 
-  return { stats, errors };
+  return { stats, errors, report };
 }
 
 // ==================== RESULTS LOGIC ====================
@@ -992,12 +1163,15 @@ export default {
         }
 
         const csvRecords = records.filter(isCsvRecord);
-        const { stats: confidenceStats, errors: confidenceErrors } =
-          await importResultConfidenceKeys(
-            strapi,
-            csvRecords,
-            action === "apply"
-          );
+        const {
+          stats: confidenceStats,
+          errors: confidenceErrors,
+          report: confidenceReport,
+        } = await importResultConfidenceKeys(
+          strapi,
+          csvRecords,
+          action === "apply"
+        );
 
         return ctx.send({
           success: true,
@@ -1007,6 +1181,7 @@ export default {
               : "Result confidence_key dry-run completed (no changes written)",
           dryRun: action !== "apply",
           stats: confidenceStats,
+          report: confidenceReport,
           errors: confidenceErrors.length > 0 ? confidenceErrors : undefined,
         });
       }

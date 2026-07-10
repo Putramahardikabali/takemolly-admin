@@ -312,6 +312,61 @@ const VALID_CONFIDENCE_KEYS = new Set([
     "cap_evidence",
     "caution",
 ]);
+const CONFIDENCE_BREAKDOWN_LABELS = [
+    "✅",
+    "⭐",
+    "🎓",
+    "🚩",
+    "🗒️",
+    "empty",
+    "other",
+];
+function createEmptyConfidenceBreakdown() {
+    return Object.fromEntries(CONFIDENCE_BREAKDOWN_LABELS.map((label) => [
+        label,
+        { updated: 0, unchanged: 0, cleared: 0, unmatched: 0, duplicate: 0 },
+    ]));
+}
+function classifyConfidenceLabel(raw) {
+    const value = normalizeConfidenceCell(raw);
+    if (!value)
+        return "empty";
+    const tokens = value
+        .split(/[,;|/]+/)
+        .map((token) => token.trim())
+        .filter(Boolean);
+    const searchSpace = (tokens.length > 0 ? tokens : [value]).join(" ");
+    const hasMemo = confidenceContains(searchSpace, "🗒");
+    const hasFlag = confidenceContains(searchSpace, "🚩");
+    const hasCap = confidenceContains(searchSpace, "🎓");
+    const hasStar = confidenceContainsAny(searchSpace, ["⭐", "★"]);
+    const hasCheck = confidenceContainsAny(searchSpace, ["✅", "✔", "☑"]);
+    if (hasFlag)
+        return "🚩";
+    if (hasCap)
+        return "🎓";
+    if (hasStar)
+        return "⭐";
+    if (hasCheck)
+        return "✅";
+    if (hasMemo)
+        return "🗒️";
+    return "other";
+}
+function formatCleanedResearchPapers(raw) {
+    const titles = parseResearchPaperTitles(raw);
+    if (titles.length > 0)
+        return titles.join("; ");
+    const single = stripNotionUrlSuffix(raw.trim());
+    return single;
+}
+function mappingToNextKey(mapping) {
+    if (mapping.action === "set")
+        return mapping.key;
+    if (mapping.action === "clear")
+        return null;
+    return undefined;
+}
 function getRowValue(record, ...candidates) {
     const normalizedRecord = new Map();
     for (const [key, value] of Object.entries(record)) {
@@ -494,6 +549,11 @@ async function importResultConfidenceKeys(strapi, records, apply) {
         duplicates: 0,
     };
     const errors = [];
+    const report = {
+        unmatched_rows: [],
+        duplicate_rows: [],
+        breakdown_by_confidence: createEmptyConfidenceBreakdown(),
+    };
     const rowKeyCounts = new Map();
     for (const record of records) {
         const rowKey = resolveImportRowKey(record);
@@ -505,51 +565,104 @@ async function importResultConfidenceKeys(strapi, records, apply) {
         .filter(([, count]) => count > 1)
         .map(([rowKey]) => rowKey));
     const processedRowKeys = new Set();
-    for (const record of records) {
+    const firstRowMappingByKey = new Map();
+    const bumpBreakdown = (label, bucket) => {
+        report.breakdown_by_confidence[label][bucket]++;
+    };
+    for (let index = 0; index < records.length; index++) {
+        const record = records[index];
+        const rowNumber = index + 2;
         const resultTitle = getRowValue(record, "Results").trim();
         const paperTitleRaw = getRowValue(record, "Research Papers", "Title");
+        const paperTitleCleaned = formatCleanedResearchPapers(paperTitleRaw);
         const confidenceRaw = getRowValue(record, "Confidence", "confidence_key");
-        const rowLabel = resultTitle || paperTitleRaw || "Unknown";
+        const confidenceLabel = classifyConfidenceLabel(confidenceRaw);
+        const rowLabel = `Row ${rowNumber}: ${resultTitle || paperTitleRaw || "Unknown"}`;
         const rowKey = resolveImportRowKey(record);
+        const mapping = mapConfidenceValueToKey(confidenceRaw);
+        const mappedKey = mappingToNextKey(mapping);
+        const baseReport = {
+            row_number: rowNumber,
+            results: resultTitle,
+            research_papers_original: paperTitleRaw,
+            research_papers_cleaned: paperTitleCleaned,
+            confidence: confidenceRaw,
+            confidence_label: confidenceLabel,
+            mapped_confidence_key: mappedKey === undefined ? null : mappedKey,
+        };
         if (!resultTitle && !paperTitleRaw.trim()) {
+            const errorReason = "Missing Results and Research Papers / Title";
             stats.unmatched++;
-            errors.push({
-                row: rowLabel,
-                error: "Missing Results and Research Papers / Title",
+            bumpBreakdown(confidenceLabel, "unmatched");
+            errors.push({ row: rowLabel, error: errorReason });
+            report.unmatched_rows.push({
+                ...baseReport,
+                outcome: "unmatched",
+                error_reason: errorReason,
             });
             continue;
         }
-        if (duplicateRowKeys.has(rowKey)) {
-            if (processedRowKeys.has(rowKey)) {
-                stats.duplicates++;
-                continue;
-            }
+        if (duplicateRowKeys.has(rowKey) && processedRowKeys.has(rowKey)) {
+            const firstMappedKey = firstRowMappingByKey.get(rowKey);
+            const duplicateType = firstMappedKey === mappedKey ? "exact" : "conflicting";
+            const errorReason = duplicateType === "exact"
+                ? "Duplicate row (exact — same Result, paper, and Confidence mapping as first occurrence)"
+                : "Duplicate row (conflicting — same Result and paper but different Confidence mapping than first occurrence)";
+            stats.duplicates++;
+            bumpBreakdown(confidenceLabel, "duplicate");
+            errors.push({ row: rowLabel, error: errorReason });
+            report.duplicate_rows.push({
+                ...baseReport,
+                outcome: "duplicate",
+                duplicate_type: duplicateType,
+                error_reason: errorReason,
+            });
+            continue;
         }
         processedRowKeys.add(rowKey);
-        const mapping = mapConfidenceValueToKey(confidenceRaw);
+        if (mappedKey !== undefined) {
+            firstRowMappingByKey.set(rowKey, mappedKey);
+        }
         if (mapping.action === "invalid") {
+            stats.unmatched++;
+            bumpBreakdown(confidenceLabel, "unmatched");
             errors.push({ row: rowLabel, error: mapping.reason });
+            report.unmatched_rows.push({
+                ...baseReport,
+                outcome: "invalid",
+                error_reason: mapping.reason,
+            });
             continue;
         }
         const result = await findResultForConfidenceImport(strapi, record);
         if (!result) {
+            const errorReason = "No Result matched this row";
             stats.unmatched++;
-            errors.push({
-                row: rowLabel,
-                error: "No Result matched this row",
+            bumpBreakdown(confidenceLabel, "unmatched");
+            errors.push({ row: rowLabel, error: errorReason });
+            report.unmatched_rows.push({
+                ...baseReport,
+                outcome: "unmatched",
+                error_reason: errorReason,
             });
             continue;
         }
         stats.matched++;
         const nextKey = mapping.action === "clear" ? null : mapping.key;
         const currentKey = (_b = result.confidence_key) !== null && _b !== void 0 ? _b : null;
+        const isClearIntent = nextKey === null;
+        if (isClearIntent) {
+            stats.cleared++;
+            bumpBreakdown(confidenceLabel, "cleared");
+        }
         if (currentKey === nextKey) {
             stats.unchanged++;
+            if (!isClearIntent) {
+                bumpBreakdown(confidenceLabel, "unchanged");
+            }
             continue;
         }
-        if (nextKey === null) {
-            stats.cleared++;
-        }
+        bumpBreakdown(confidenceLabel, "updated");
         if (apply) {
             await strapi.entityService.update("api::result.result", result.id, {
                 data: { confidence_key: nextKey },
@@ -557,7 +670,7 @@ async function importResultConfidenceKeys(strapi, records, apply) {
         }
         stats.updated++;
     }
-    return { stats, errors };
+    return { stats, errors, report };
 }
 // ==================== RESULTS LOGIC ====================
 function mapResultRow(csvRow) {
@@ -778,7 +891,7 @@ exports.default = {
                     return ctx.badRequest("Invalid CSV format");
                 }
                 const csvRecords = records.filter(isCsvRecord);
-                const { stats: confidenceStats, errors: confidenceErrors } = await importResultConfidenceKeys(strapi, csvRecords, action === "apply");
+                const { stats: confidenceStats, errors: confidenceErrors, report: confidenceReport, } = await importResultConfidenceKeys(strapi, csvRecords, action === "apply");
                 return ctx.send({
                     success: true,
                     message: action === "apply"
@@ -786,6 +899,7 @@ exports.default = {
                         : "Result confidence_key dry-run completed (no changes written)",
                     dryRun: action !== "apply",
                     stats: confidenceStats,
+                    report: confidenceReport,
                     errors: confidenceErrors.length > 0 ? confidenceErrors : undefined,
                 });
             }

@@ -30,6 +30,33 @@ interface ImportStats {
   duplicates?: number;
 }
 
+interface ConfidenceBreakdownBucket {
+  updated: number;
+  unchanged: number;
+  cleared: number;
+  unmatched: number;
+  duplicate: number;
+}
+
+interface ConfidenceImportRowReport {
+  row_number: number;
+  results: string;
+  research_papers_original: string;
+  research_papers_cleaned: string;
+  confidence: string;
+  confidence_label: string;
+  mapped_confidence_key: string | null;
+  error_reason?: string;
+  duplicate_type?: "exact" | "conflicting";
+  outcome: string;
+}
+
+interface ConfidenceImportReport {
+  unmatched_rows: ConfidenceImportRowReport[];
+  duplicate_rows: ConfidenceImportRowReport[];
+  breakdown_by_confidence: Record<string, ConfidenceBreakdownBucket>;
+}
+
 interface ImportError {
   row: string;
   error: string;
@@ -40,6 +67,7 @@ interface ImportResult {
   message: string;
   dryRun?: boolean;
   stats?: ImportStats;
+  report?: ConfidenceImportReport;
   errors?: ImportError[];
 }
 
@@ -73,6 +101,102 @@ Participants who took the Rhodiola rosea L. extract reported a significant decre
 };
 
 type ApiResult = ImportResult | ExportResult | null;
+
+const CONFIDENCE_BREAKDOWN_LABELS = [
+  "✅",
+  "⭐",
+  "🎓",
+  "🚩",
+  "🗒️",
+  "empty",
+  "other",
+] as const;
+
+const CONFIDENCE_BREAKDOWN_COLUMNS = [
+  { key: "updated", label: "Updated" },
+  { key: "unchanged", label: "Unchanged" },
+  { key: "cleared", label: "Cleared / no icon" },
+  { key: "unmatched", label: "Unmatched" },
+  { key: "duplicate", label: "Duplicate" },
+] as const;
+
+function escapeCsvCell(value: string | number | null | undefined): string {
+  const text = value === null || value === undefined ? "" : String(value);
+  if (/[",\n\r]/.test(text)) {
+    return `"${text.replace(/"/g, '""')}"`;
+  }
+  return text;
+}
+
+function downloadReportCsv(
+  filename: string,
+  headers: string[],
+  rows: Array<Record<string, string | number | null | undefined>>
+) {
+  const lines = [
+    headers.join(","),
+    ...rows.map((row) =>
+      headers.map((header) => escapeCsvCell(row[header])).join(",")
+    ),
+  ];
+  const blob = new Blob([lines.join("\n")], {
+    type: "text/csv;charset=utf-8;",
+  });
+  const url = window.URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  window.URL.revokeObjectURL(url);
+  document.body.removeChild(link);
+}
+
+function downloadUnmatchedConfidenceCsv(rows: ConfidenceImportRowReport[]) {
+  downloadReportCsv(
+    "unmatched-results-confidence-import.csv",
+    [
+      "row_number",
+      "results",
+      "research_papers_cleaned",
+      "research_papers_original",
+      "confidence",
+      "mapped_confidence_key",
+      "error_reason",
+    ],
+    rows.map((row) => ({
+      row_number: row.row_number,
+      results: row.results,
+      research_papers_cleaned: row.research_papers_cleaned,
+      research_papers_original: row.research_papers_original,
+      confidence: row.confidence,
+      mapped_confidence_key: row.mapped_confidence_key,
+      error_reason: row.error_reason ?? "",
+    }))
+  );
+}
+
+function downloadDuplicateConfidenceCsv(rows: ConfidenceImportRowReport[]) {
+  downloadReportCsv(
+    "duplicate-results-confidence-import.csv",
+    [
+      "row_number",
+      "results",
+      "research_papers_cleaned",
+      "confidence",
+      "mapped_confidence_key",
+      "duplicate_type",
+    ],
+    rows.map((row) => ({
+      row_number: row.row_number,
+      results: row.results,
+      research_papers_cleaned: row.research_papers_cleaned,
+      confidence: row.confidence,
+      mapped_confidence_key: row.mapped_confidence_key,
+      duplicate_type: row.duplicate_type ?? "",
+    }))
+  );
+}
 
 export default function SupplementImportExport() {
   const [importing, setImporting] = useState<boolean>(false);
@@ -108,6 +232,9 @@ export default function SupplementImportExport() {
     "dry-run",
   );
   const [showErrors, setShowErrors] = useState<boolean>(false);
+  const [auditView, setAuditView] = useState<"unmatched" | "duplicates" | null>(
+    null
+  );
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const API_BASE = "/api/import-export";
@@ -520,6 +647,114 @@ export default function SupplementImportExport() {
               )}
 
               {isImportResult(result) &&
+                result.report &&
+                isConfidenceKeyImport && (
+                  <Flex direction="column" gap={4} marginTop={4}>
+                    <Typography variant="delta" fontWeight="bold">
+                      Confidence breakdown (by original Confidence value)
+                    </Typography>
+                    <Box style={{ overflowX: "auto" }}>
+                      <Table
+                        colCount={CONFIDENCE_BREAKDOWN_COLUMNS.length + 1}
+                        rowCount={CONFIDENCE_BREAKDOWN_LABELS.length + 1}
+                      >
+                        <Thead>
+                          <Tr>
+                            <Th>
+                              <Typography variant="sigma">Confidence</Typography>
+                            </Th>
+                            {CONFIDENCE_BREAKDOWN_COLUMNS.map((column) => (
+                              <Th key={column.key}>
+                                <Typography variant="sigma">
+                                  {column.label}
+                                </Typography>
+                              </Th>
+                            ))}
+                          </Tr>
+                        </Thead>
+                        <Tbody>
+                          {CONFIDENCE_BREAKDOWN_LABELS.map((label) => {
+                            const bucket =
+                              result.report?.breakdown_by_confidence[label];
+                            if (!bucket) return null;
+                            const rowTotal = CONFIDENCE_BREAKDOWN_COLUMNS.reduce(
+                              (sum, column) => sum + bucket[column.key],
+                              0
+                            );
+                            if (label === "other" && rowTotal === 0) {
+                              return null;
+                            }
+                            return (
+                              <Tr key={label}>
+                                <Td>
+                                  <Typography variant="omega">
+                                    {label === "empty" ? "(empty)" : label}
+                                  </Typography>
+                                </Td>
+                                {CONFIDENCE_BREAKDOWN_COLUMNS.map((column) => (
+                                  <Td key={column.key}>
+                                    <Typography variant="omega">
+                                      {bucket[column.key]}
+                                    </Typography>
+                                  </Td>
+                                ))}
+                              </Tr>
+                            );
+                          })}
+                        </Tbody>
+                      </Table>
+                    </Box>
+
+                    <Flex gap={3} wrap="wrap">
+                      {result.report.unmatched_rows.length > 0 && (
+                        <>
+                          <Button
+                            variant="secondary"
+                            startIcon={<Download />}
+                            onClick={() =>
+                              downloadUnmatchedConfidenceCsv(
+                                result.report!.unmatched_rows
+                              )
+                            }
+                          >
+                            Download unmatched CSV (
+                            {result.report.unmatched_rows.length})
+                          </Button>
+                          <Button
+                            variant="tertiary"
+                            onClick={() => setAuditView("unmatched")}
+                          >
+                            Preview unmatched rows
+                          </Button>
+                        </>
+                      )}
+                      {result.report.duplicate_rows.length > 0 && (
+                        <>
+                          <Button
+                            variant="secondary"
+                            startIcon={<Download />}
+                            onClick={() =>
+                              downloadDuplicateConfidenceCsv(
+                                result.report!.duplicate_rows
+                              )
+                            }
+                          >
+                            Download duplicate CSV (
+                            {result.report.duplicate_rows.length})
+                          </Button>
+                          <Button
+                            variant="tertiary"
+                            onClick={() => setAuditView("duplicates")}
+                          >
+                            Preview duplicate rows
+                          </Button>
+                        </>
+                      )}
+                    </Flex>
+                  </Flex>
+                )}
+
+              {isImportResult(result) &&
                 result.errors &&
                 result.errors.length > 0 && (
                   <Box marginTop={4}>
@@ -528,7 +763,7 @@ export default function SupplementImportExport() {
                       onClick={() => setShowErrors(true)}
                       startIcon={<Information />}
                     >
-                      View {result.errors.length} error(s)
+                      View {result.errors.length} issue(s)
                     </Button>
                   </Box>
                 )}
@@ -624,7 +859,187 @@ export default function SupplementImportExport() {
         </Flex>
       </Box>
 
-      {/* Errors Modal */}
+      {/* Audit preview modal (confidence import) */}
+      {isImportResult(result) &&
+        result.report &&
+        auditView &&
+        (auditView === "unmatched"
+          ? result.report.unmatched_rows
+          : result.report.duplicate_rows
+        ).length > 0 && (
+          <>
+            <Box
+              style={{
+                position: "fixed",
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                backgroundColor: "rgba(0, 0, 0, 0.5)",
+                zIndex: 9998,
+              }}
+              onClick={() => setAuditView(null)}
+            />
+            <Box
+              style={{
+                position: "fixed",
+                top: "50%",
+                left: "50%",
+                transform: "translate(-50%, -50%)",
+                zIndex: 9999,
+                maxWidth: "1200px",
+                width: "95%",
+                maxHeight: "85vh",
+                overflow: "hidden",
+              }}
+              background="neutral0"
+              hasRadius
+              shadow="tableShadow"
+            >
+              <Flex
+                padding={6}
+                justifyContent="space-between"
+                alignItems="center"
+                borderColor="neutral200"
+                style={{ borderBottom: "1px solid" }}
+              >
+                <Typography
+                  fontWeight="bold"
+                  textColor="neutral800"
+                  variant="beta"
+                >
+                  {auditView === "unmatched"
+                    ? `Unmatched rows (${result.report.unmatched_rows.length})`
+                    : `Duplicate rows (${result.report.duplicate_rows.length})`}
+                </Typography>
+                <Flex gap={2}>
+                  <Button
+                    variant="secondary"
+                    startIcon={<Download />}
+                    onClick={() =>
+                      auditView === "unmatched"
+                        ? downloadUnmatchedConfidenceCsv(
+                            result.report!.unmatched_rows
+                          )
+                        : downloadDuplicateConfidenceCsv(
+                            result.report!.duplicate_rows
+                          )
+                    }
+                  >
+                    Download CSV
+                  </Button>
+                  <Button
+                    variant="tertiary"
+                    onClick={() => setAuditView(null)}
+                    startIcon={<Cross />}
+                  >
+                    Close
+                  </Button>
+                </Flex>
+              </Flex>
+              <Box padding={6} style={{ maxHeight: "65vh", overflow: "auto" }}>
+                <Table
+                  colCount={auditView === "unmatched" ? 7 : 6}
+                  rowCount={
+                    (auditView === "unmatched"
+                      ? result.report.unmatched_rows
+                      : result.report.duplicate_rows
+                    ).length + 1
+                  }
+                >
+                  <Thead>
+                    <Tr>
+                      <Th>
+                        <Typography variant="sigma">Row</Typography>
+                      </Th>
+                      <Th>
+                        <Typography variant="sigma">Results</Typography>
+                      </Th>
+                      <Th>
+                        <Typography variant="sigma">
+                          Research Papers (cleaned)
+                        </Typography>
+                      </Th>
+                      {auditView === "unmatched" && (
+                        <Th>
+                          <Typography variant="sigma">
+                            Research Papers (original)
+                          </Typography>
+                        </Th>
+                      )}
+                      <Th>
+                        <Typography variant="sigma">Confidence</Typography>
+                      </Th>
+                      <Th>
+                        <Typography variant="sigma">
+                          Mapped confidence_key
+                        </Typography>
+                      </Th>
+                      <Th>
+                        <Typography variant="sigma">
+                          {auditView === "unmatched"
+                            ? "Error reason"
+                            : "Duplicate type"}
+                        </Typography>
+                      </Th>
+                    </Tr>
+                  </Thead>
+                  <Tbody>
+                    {(auditView === "unmatched"
+                      ? result.report.unmatched_rows
+                      : result.report.duplicate_rows
+                    ).map((row) => (
+                      <Tr key={row.row_number}>
+                        <Td>
+                          <Typography variant="omega">
+                            {row.row_number}
+                          </Typography>
+                        </Td>
+                        <Td>
+                          <Typography variant="omega">{row.results}</Typography>
+                        </Td>
+                        <Td>
+                          <Typography variant="omega">
+                            {row.research_papers_cleaned}
+                          </Typography>
+                        </Td>
+                        {auditView === "unmatched" && (
+                          <Td>
+                            <Typography variant="omega">
+                              {row.research_papers_original}
+                            </Typography>
+                          </Td>
+                        )}
+                        <Td>
+                          <Typography variant="omega">
+                            {row.confidence || "(empty)"}
+                          </Typography>
+                        </Td>
+                        <Td>
+                          <Typography variant="omega">
+                            {row.mapped_confidence_key ?? "(null)"}
+                          </Typography>
+                        </Td>
+                        <Td>
+                          <Typography
+                            variant="omega"
+                            textColor="danger600"
+                          >
+                            {auditView === "unmatched"
+                              ? row.error_reason
+                              : row.duplicate_type}
+                          </Typography>
+                        </Td>
+                      </Tr>
+                    ))}
+                  </Tbody>
+                </Table>
+              </Box>
+            </Box>
+          </>
+        )}
+
+      {/* Issues modal */}
       {isImportResult(result) && result.errors && showErrors && (
         <>
           {/* Backdrop */}
@@ -671,7 +1086,7 @@ export default function SupplementImportExport() {
                 textColor="neutral800"
                 variant="beta"
               >
-                Import Errors ({result.errors.length})
+                Import Issues ({result.errors.length})
               </Typography>
               <Button
                 variant="tertiary"

@@ -390,38 +390,89 @@ const RESULT_CONFIDENCE_KEY_VALUES = [
     "cap_evidence",
     "caution",
 ];
+const RESULT_CONTENT_TYPE_UID = "api::result.result";
+async function readResultConfidenceKey(strapi, documentId, status) {
+    const doc = await strapi.documents(RESULT_CONTENT_TYPE_UID).findOne({
+        documentId,
+        status,
+        fields: ["confidence_key"],
+    });
+    return normalizeStoredConfidenceKey(doc === null || doc === void 0 ? void 0 : doc.confidence_key);
+}
+async function syncResultConfidenceKeyInDatabase(strapi, documentId, nextKey) {
+    const rows = await strapi.db.query(RESULT_CONTENT_TYPE_UID).findMany({
+        where: { documentId },
+        select: ["id"],
+    });
+    for (const row of rows) {
+        await strapi.db.query(RESULT_CONTENT_TYPE_UID).update({
+            where: { id: row.id },
+            data: { confidence_key: nextKey },
+        });
+    }
+}
 async function updateResultConfidenceKey(strapi, documentId, nextKey, logContext) {
     const data = { confidence_key: nextKey };
+    const expectedKey = normalizeStoredConfidenceKey(nextKey);
     try {
-        try {
-            await strapi.documents("api::result.result").update({
-                documentId,
-                data,
-                status: "published",
-            });
-        }
-        catch (publishedError) {
-            await strapi.documents("api::result.result").update({
-                documentId,
-                data,
-            });
-            await strapi.documents("api::result.result").publish({ documentId });
-        }
-        const verified = await strapi.documents("api::result.result").findOne({
+        // Content Manager edits the draft version — update draft first.
+        await strapi.documents(RESULT_CONTENT_TYPE_UID).update({
             documentId,
-            status: "published",
-            fields: ["confidence_key", "documentId"],
+            data,
         });
-        const writtenKey = normalizeStoredConfidenceKey(verified === null || verified === void 0 ? void 0 : verified.confidence_key);
-        const expectedKey = normalizeStoredConfidenceKey(nextKey);
-        if (writtenKey !== expectedKey) {
-            const error = `Write verification failed: expected ${expectedKey !== null && expectedKey !== void 0 ? expectedKey : "(null)"}, got ${writtenKey !== null && writtenKey !== void 0 ? writtenKey : "(null)"}`;
+        // Sync draft to the published version used by the API/frontend.
+        try {
+            await strapi.documents(RESULT_CONTENT_TYPE_UID).publish({ documentId });
+        }
+        catch (publishError) {
+            logConfidenceImport(strapi, "publish failed, retrying after DB sync", {
+                row: logContext.rowNumber,
+                documentId,
+                error: publishError.message,
+            });
+            await syncResultConfidenceKeyInDatabase(strapi, documentId, nextKey);
+            await strapi.documents(RESULT_CONTENT_TYPE_UID).publish({ documentId });
+        }
+        let draftKey = await readResultConfidenceKey(strapi, documentId, "draft");
+        let publishedKey = await readResultConfidenceKey(strapi, documentId, "published");
+        if (draftKey !== expectedKey || publishedKey !== expectedKey) {
+            logConfidenceImport(strapi, "document service mismatch, using DB fallback", {
+                row: logContext.rowNumber,
+                documentId,
+                expected: expectedKey,
+                draft: draftKey,
+                published: publishedKey,
+            });
+            await syncResultConfidenceKeyInDatabase(strapi, documentId, nextKey);
+            await strapi.documents(RESULT_CONTENT_TYPE_UID).publish({ documentId });
+            draftKey = await readResultConfidenceKey(strapi, documentId, "draft");
+            publishedKey = await readResultConfidenceKey(strapi, documentId, "published");
+        }
+        if (draftKey !== expectedKey) {
+            const error = `Draft verification failed: expected ${expectedKey !== null && expectedKey !== void 0 ? expectedKey : "(null)"}, got ${draftKey !== null && draftKey !== void 0 ? draftKey : "(null)"}`;
             logConfidenceImport(strapi, "write failed", {
                 row: logContext.rowNumber,
                 documentId,
                 result: logContext.resultTitle,
                 old_confidence_key: logContext.currentKey,
                 new_confidence_key: nextKey,
+                draft_confidence_key: draftKey,
+                published_confidence_key: publishedKey,
+                success: false,
+                error,
+            });
+            return { success: false, error };
+        }
+        if (publishedKey !== expectedKey) {
+            const error = `Published verification failed: expected ${expectedKey !== null && expectedKey !== void 0 ? expectedKey : "(null)"}, got ${publishedKey !== null && publishedKey !== void 0 ? publishedKey : "(null)"}`;
+            logConfidenceImport(strapi, "write failed", {
+                row: logContext.rowNumber,
+                documentId,
+                result: logContext.resultTitle,
+                old_confidence_key: logContext.currentKey,
+                new_confidence_key: nextKey,
+                draft_confidence_key: draftKey,
+                published_confidence_key: publishedKey,
                 success: false,
                 error,
             });
@@ -433,9 +484,11 @@ async function updateResultConfidenceKey(strapi, documentId, nextKey, logContext
             result: logContext.resultTitle,
             old_confidence_key: logContext.currentKey,
             new_confidence_key: nextKey,
+            draft_confidence_key: draftKey,
+            published_confidence_key: publishedKey,
             success: true,
         });
-        return { success: true, writtenKey };
+        return { success: true, writtenKey: draftKey };
     }
     catch (err) {
         const error = err.message;
@@ -451,7 +504,7 @@ async function updateResultConfidenceKey(strapi, documentId, nextKey, logContext
         return { success: false, error };
     }
 }
-async function countPublishedResultConfidenceKeys(strapi) {
+async function countResultConfidenceKeysByStatus(strapi, status) {
     const counts = {
         check_evidence: 0,
         star_evidence: 0,
@@ -460,16 +513,23 @@ async function countPublishedResultConfidenceKeys(strapi) {
         empty: 0,
     };
     for (const key of RESULT_CONFIDENCE_KEY_VALUES) {
-        counts[key] = await strapi.documents("api::result.result").count({
+        counts[key] = await strapi.documents(RESULT_CONTENT_TYPE_UID).count({
             filters: { confidence_key: { $eq: key } },
-            status: "published",
+            status,
         });
     }
-    counts.empty = await strapi.documents("api::result.result").count({
+    counts.empty = await strapi.documents(RESULT_CONTENT_TYPE_UID).count({
         filters: { confidence_key: { $null: true } },
-        status: "published",
+        status,
     });
     return counts;
+}
+async function countPublishedResultConfidenceKeys(strapi) {
+    const [draft, published] = await Promise.all([
+        countResultConfidenceKeysByStatus(strapi, "draft"),
+        countResultConfidenceKeysByStatus(strapi, "published"),
+    ]);
+    return { draft, published };
 }
 function getRowValue(record, ...candidates) {
     const normalizedRecord = new Map();
@@ -584,7 +644,6 @@ async function findResultForConfidenceImport(strapi, record) {
     const baseQuery = {
         populate: { researchPapers: { fields: ["id", "Title"] } },
         fields: ["documentId", "confidence_key", "title", "slug"],
-        status: "published",
     };
     let candidates = [];
     if (resultTitle) {

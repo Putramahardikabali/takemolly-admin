@@ -413,6 +413,11 @@ interface ConfidenceKeyVerificationCounts {
   empty: number;
 }
 
+interface ConfidenceKeyVerificationReport {
+  draft: ConfidenceKeyVerificationCounts;
+  published: ConfidenceKeyVerificationCounts;
+}
+
 type ConfidenceLabel =
   | "✅"
   | "⭐"
@@ -544,6 +549,39 @@ const RESULT_CONFIDENCE_KEY_VALUES = [
   "caution",
 ] as const;
 
+const RESULT_CONTENT_TYPE_UID = "api::result.result";
+
+async function readResultConfidenceKey(
+  strapi: any,
+  documentId: string,
+  status: "draft" | "published"
+): Promise<string | null> {
+  const doc = await strapi.documents(RESULT_CONTENT_TYPE_UID).findOne({
+    documentId,
+    status,
+    fields: ["confidence_key"],
+  });
+  return normalizeStoredConfidenceKey(doc?.confidence_key);
+}
+
+async function syncResultConfidenceKeyInDatabase(
+  strapi: any,
+  documentId: string,
+  nextKey: ConfidenceKeyValue | null
+) {
+  const rows = await strapi.db.query(RESULT_CONTENT_TYPE_UID).findMany({
+    where: { documentId },
+    select: ["id"],
+  });
+
+  for (const row of rows) {
+    await strapi.db.query(RESULT_CONTENT_TYPE_UID).update({
+      where: { id: row.id },
+      data: { confidence_key: nextKey },
+    });
+  }
+}
+
 async function updateResultConfidenceKey(
   strapi: any,
   documentId: string,
@@ -555,39 +593,81 @@ async function updateResultConfidenceKey(
   }
 ): Promise<{ success: boolean; error?: string; writtenKey?: string | null }> {
   const data = { confidence_key: nextKey };
+  const expectedKey = normalizeStoredConfidenceKey(nextKey);
 
   try {
-    try {
-      await strapi.documents("api::result.result").update({
-        documentId,
-        data,
-        status: "published",
-      });
-    } catch (publishedError) {
-      await strapi.documents("api::result.result").update({
-        documentId,
-        data,
-      });
-      await strapi.documents("api::result.result").publish({ documentId });
-    }
-
-    const verified = await strapi.documents("api::result.result").findOne({
+    // Content Manager edits the draft version — update draft first.
+    await strapi.documents(RESULT_CONTENT_TYPE_UID).update({
       documentId,
-      status: "published",
-      fields: ["confidence_key", "documentId"],
+      data,
     });
 
-    const writtenKey = normalizeStoredConfidenceKey(verified?.confidence_key);
-    const expectedKey = normalizeStoredConfidenceKey(nextKey);
+    // Sync draft to the published version used by the API/frontend.
+    try {
+      await strapi.documents(RESULT_CONTENT_TYPE_UID).publish({ documentId });
+    } catch (publishError) {
+      logConfidenceImport(strapi, "publish failed, retrying after DB sync", {
+        row: logContext.rowNumber,
+        documentId,
+        error: (publishError as Error).message,
+      });
+      await syncResultConfidenceKeyInDatabase(strapi, documentId, nextKey);
+      await strapi.documents(RESULT_CONTENT_TYPE_UID).publish({ documentId });
+    }
 
-    if (writtenKey !== expectedKey) {
-      const error = `Write verification failed: expected ${expectedKey ?? "(null)"}, got ${writtenKey ?? "(null)"}`;
+    let draftKey = await readResultConfidenceKey(strapi, documentId, "draft");
+    let publishedKey = await readResultConfidenceKey(
+      strapi,
+      documentId,
+      "published"
+    );
+
+    if (draftKey !== expectedKey || publishedKey !== expectedKey) {
+      logConfidenceImport(strapi, "document service mismatch, using DB fallback", {
+        row: logContext.rowNumber,
+        documentId,
+        expected: expectedKey,
+        draft: draftKey,
+        published: publishedKey,
+      });
+
+      await syncResultConfidenceKeyInDatabase(strapi, documentId, nextKey);
+      await strapi.documents(RESULT_CONTENT_TYPE_UID).publish({ documentId });
+
+      draftKey = await readResultConfidenceKey(strapi, documentId, "draft");
+      publishedKey = await readResultConfidenceKey(
+        strapi,
+        documentId,
+        "published"
+      );
+    }
+
+    if (draftKey !== expectedKey) {
+      const error = `Draft verification failed: expected ${expectedKey ?? "(null)"}, got ${draftKey ?? "(null)"}`;
       logConfidenceImport(strapi, "write failed", {
         row: logContext.rowNumber,
         documentId,
         result: logContext.resultTitle,
         old_confidence_key: logContext.currentKey,
         new_confidence_key: nextKey,
+        draft_confidence_key: draftKey,
+        published_confidence_key: publishedKey,
+        success: false,
+        error,
+      });
+      return { success: false, error };
+    }
+
+    if (publishedKey !== expectedKey) {
+      const error = `Published verification failed: expected ${expectedKey ?? "(null)"}, got ${publishedKey ?? "(null)"}`;
+      logConfidenceImport(strapi, "write failed", {
+        row: logContext.rowNumber,
+        documentId,
+        result: logContext.resultTitle,
+        old_confidence_key: logContext.currentKey,
+        new_confidence_key: nextKey,
+        draft_confidence_key: draftKey,
+        published_confidence_key: publishedKey,
         success: false,
         error,
       });
@@ -600,10 +680,12 @@ async function updateResultConfidenceKey(
       result: logContext.resultTitle,
       old_confidence_key: logContext.currentKey,
       new_confidence_key: nextKey,
+      draft_confidence_key: draftKey,
+      published_confidence_key: publishedKey,
       success: true,
     });
 
-    return { success: true, writtenKey };
+    return { success: true, writtenKey: draftKey };
   } catch (err) {
     const error = (err as Error).message;
     logConfidenceImport(strapi, "write failed", {
@@ -619,8 +701,9 @@ async function updateResultConfidenceKey(
   }
 }
 
-async function countPublishedResultConfidenceKeys(
-  strapi: any
+async function countResultConfidenceKeysByStatus(
+  strapi: any,
+  status: "draft" | "published"
 ): Promise<ConfidenceKeyVerificationCounts> {
   const counts: ConfidenceKeyVerificationCounts = {
     check_evidence: 0,
@@ -631,18 +714,29 @@ async function countPublishedResultConfidenceKeys(
   };
 
   for (const key of RESULT_CONFIDENCE_KEY_VALUES) {
-    counts[key] = await strapi.documents("api::result.result").count({
+    counts[key] = await strapi.documents(RESULT_CONTENT_TYPE_UID).count({
       filters: { confidence_key: { $eq: key } },
-      status: "published",
+      status,
     });
   }
 
-  counts.empty = await strapi.documents("api::result.result").count({
+  counts.empty = await strapi.documents(RESULT_CONTENT_TYPE_UID).count({
     filters: { confidence_key: { $null: true } },
-    status: "published",
+    status,
   });
 
   return counts;
+}
+
+async function countPublishedResultConfidenceKeys(
+  strapi: any
+): Promise<ConfidenceKeyVerificationReport> {
+  const [draft, published] = await Promise.all([
+    countResultConfidenceKeysByStatus(strapi, "draft"),
+    countResultConfidenceKeysByStatus(strapi, "published"),
+  ]);
+
+  return { draft, published };
 }
 
 function getRowValue(
@@ -783,7 +877,6 @@ async function findResultForConfidenceImport(
   const baseQuery = {
     populate: { researchPapers: { fields: ["id", "Title"] } },
     fields: ["documentId", "confidence_key", "title", "slug"],
-    status: "published" as const,
   };
 
   let candidates: any[] = [];
@@ -871,7 +964,7 @@ async function importResultConfidenceKeys(
   stats: ConfidenceKeyImportStats;
   errors: Array<{ row: string; error: string }>;
   report: ConfidenceKeyImportReport;
-  verification?: ConfidenceKeyVerificationCounts;
+  verification?: ConfidenceKeyVerificationReport;
 }> {
   const stats: ConfidenceKeyImportStats = {
     total: records.length,

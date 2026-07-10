@@ -42,6 +42,11 @@ interface ConfidenceKeyVerificationCounts {
   empty: number;
 }
 
+interface ConfidenceKeyVerificationReport {
+  draft: ConfidenceKeyVerificationCounts;
+  published: ConfidenceKeyVerificationCounts;
+}
+
 interface ConfidenceBreakdownBucket {
   updated: number;
   unchanged: number;
@@ -82,7 +87,7 @@ interface ImportResult {
   applied?: boolean;
   stats?: ImportStats;
   report?: ConfidenceImportReport;
-  verification?: ConfidenceKeyVerificationCounts;
+  verification?: ConfidenceKeyVerificationReport;
   errors?: ImportError[];
 }
 
@@ -698,38 +703,46 @@ export default function SupplementImportExport() {
               {isImportResult(result) &&
                 result.verification &&
                 isConfidenceKeyImport && (
-                  <Flex direction="column" gap={2} marginTop={2}>
-                    <Typography variant="delta" fontWeight="bold">
-                      Published Result.confidence_key counts (after apply)
-                    </Typography>
-                    <Flex gap={4} wrap="wrap">
-                      {(
-                        [
-                          ["check_evidence", "✅ check_evidence"],
-                          ["star_evidence", "⭐ star_evidence"],
-                          ["cap_evidence", "🎓 cap_evidence"],
-                          ["caution", "🚩 caution"],
-                          ["empty", "Empty / no icon"],
-                        ] as const
-                      ).map(([key, label]) => (
-                        <Flex key={key} alignItems="center" gap={2}>
-                          <Typography variant="epsilon" fontWeight="bold">
-                            {label}:
-                          </Typography>
-                          <Box
-                            background="neutral150"
-                            padding={2}
-                            paddingLeft={3}
-                            paddingRight={3}
-                            hasRadius
-                          >
-                            <Typography variant="pi" fontWeight="bold">
-                              {result.verification![key]}
-                            </Typography>
-                          </Box>
+                  <Flex direction="column" gap={4} marginTop={2}>
+                    {(["draft", "published"] as const).map((status) => (
+                      <Flex key={status} direction="column" gap={2}>
+                        <Typography variant="delta" fontWeight="bold">
+                          Result.confidence_key counts ({status} —{" "}
+                          {status === "draft"
+                            ? "what Strapi admin edit form shows"
+                            : "what API/frontend reads"}
+                          )
+                        </Typography>
+                        <Flex gap={4} wrap="wrap">
+                          {(
+                            [
+                              ["check_evidence", "✅ check_evidence"],
+                              ["star_evidence", "⭐ star_evidence"],
+                              ["cap_evidence", "🎓 cap_evidence"],
+                              ["caution", "🚩 caution"],
+                              ["empty", "Empty / no icon"],
+                            ] as const
+                          ).map(([key, label]) => (
+                            <Flex key={key} alignItems="center" gap={2}>
+                              <Typography variant="epsilon" fontWeight="bold">
+                                {label}:
+                              </Typography>
+                              <Box
+                                background="neutral150"
+                                padding={2}
+                                paddingLeft={3}
+                                paddingRight={3}
+                                hasRadius
+                              >
+                                <Typography variant="pi" fontWeight="bold">
+                                  {result.verification![status][key]}
+                                </Typography>
+                              </Box>
+                            </Flex>
+                          ))}
                         </Flex>
-                      ))}
-                    </Flex>
+                      </Flex>
+                    ))}
                   </Flex>
                 )}
 

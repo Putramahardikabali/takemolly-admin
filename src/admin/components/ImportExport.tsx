@@ -28,6 +28,18 @@ interface ImportStats {
   cleared?: number;
   unmatched?: number;
   duplicates?: number;
+  applied?: boolean;
+  planned_updates?: number;
+  write_success?: number;
+  write_failed?: number;
+}
+
+interface ConfidenceKeyVerificationCounts {
+  check_evidence: number;
+  star_evidence: number;
+  cap_evidence: number;
+  caution: number;
+  empty: number;
 }
 
 interface ConfidenceBreakdownBucket {
@@ -65,9 +77,12 @@ interface ImportError {
 interface ImportResult {
   success: boolean;
   message: string;
+  mode?: "apply" | "dry-run";
   dryRun?: boolean;
+  applied?: boolean;
   stats?: ImportStats;
   report?: ConfidenceImportReport;
+  verification?: ConfidenceKeyVerificationCounts;
   errors?: ImportError[];
 }
 
@@ -248,27 +263,30 @@ export default function SupplementImportExport() {
     setResult(null);
 
     try {
+      const isConfidenceImport =
+        selectedCollection === "result-confidence-key" ||
+        selectedCollection === "research-paper-confidence-key";
+      const actionValue = isConfidenceImport ? importAction : "apply";
+
       const formData = new FormData();
       formData.append("file", file);
       formData.append("collection", selectedCollection);
-      formData.append(
-        "action",
-        selectedCollection === "result-confidence-key" ||
-        selectedCollection === "research-paper-confidence-key"
-          ? importAction
-          : "apply",
-      );
+      formData.append("action", actionValue);
 
-      const response = await fetch(`${API_BASE}/import`, {
-        method: "POST",
-        body: formData,
-      });
+      const response = await fetch(
+        `${API_BASE}/import?action=${encodeURIComponent(actionValue)}`,
+        {
+          method: "POST",
+          body: formData,
+        }
+      );
 
       const data: ImportResult = await response.json();
 
-      if (response.ok) {
+      if (response.ok && data.success !== false) {
         setResult(data);
       } else {
+        setResult(data.success === false ? data : null);
         setError(data.message || "Import failed");
       }
     } catch (err) {
@@ -573,9 +591,40 @@ export default function SupplementImportExport() {
 
                   {typeof result.stats.matched === "number" ? (
                     <>
+                      {result.applied !== undefined && (
+                        <Flex alignItems="center" gap={2}>
+                          <Typography variant="epsilon" fontWeight="bold">
+                            Mode:
+                          </Typography>
+                          <Box
+                            background={
+                              result.applied ? "success100" : "warning100"
+                            }
+                            padding={2}
+                            paddingLeft={3}
+                            paddingRight={3}
+                            hasRadius
+                          >
+                            <Typography variant="pi" fontWeight="bold">
+                              {result.applied ? "Apply (writes enabled)" : "Dry-run (no writes)"}
+                            </Typography>
+                          </Box>
+                        </Flex>
+                      )}
                       {[
                         ["Matched", result.stats.matched],
-                        ["Updated", result.stats.updated ?? 0],
+                        ...(result.applied
+                          ? [
+                              [
+                                "Planned updates",
+                                result.stats.planned_updates ??
+                                  result.stats.updated ??
+                                  0,
+                              ],
+                              ["Written", result.stats.updated ?? 0],
+                              ["Write failed", result.stats.write_failed ?? 0],
+                            ]
+                          : [["Updated (planned)", result.stats.updated ?? 0]]),
                         ["Unchanged", result.stats.unchanged ?? 0],
                         ["Cleared / no icon", result.stats.cleared ?? 0],
                         ["Unmatched", result.stats.unmatched ?? 0],
@@ -644,7 +693,45 @@ export default function SupplementImportExport() {
                     </>
                   )}
                 </Flex>
-              )}
+                )}
+
+              {isImportResult(result) &&
+                result.verification &&
+                isConfidenceKeyImport && (
+                  <Flex direction="column" gap={2} marginTop={2}>
+                    <Typography variant="delta" fontWeight="bold">
+                      Published Result.confidence_key counts (after apply)
+                    </Typography>
+                    <Flex gap={4} wrap="wrap">
+                      {(
+                        [
+                          ["check_evidence", "✅ check_evidence"],
+                          ["star_evidence", "⭐ star_evidence"],
+                          ["cap_evidence", "🎓 cap_evidence"],
+                          ["caution", "🚩 caution"],
+                          ["empty", "Empty / no icon"],
+                        ] as const
+                      ).map(([key, label]) => (
+                        <Flex key={key} alignItems="center" gap={2}>
+                          <Typography variant="epsilon" fontWeight="bold">
+                            {label}:
+                          </Typography>
+                          <Box
+                            background="neutral150"
+                            padding={2}
+                            paddingLeft={3}
+                            paddingRight={3}
+                            hasRadius
+                          >
+                            <Typography variant="pi" fontWeight="bold">
+                              {result.verification![key]}
+                            </Typography>
+                          </Box>
+                        </Flex>
+                      ))}
+                    </Flex>
+                  </Flex>
+                )}
 
               {isImportResult(result) &&
                 result.report &&

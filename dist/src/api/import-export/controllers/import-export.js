@@ -367,6 +367,110 @@ function mappingToNextKey(mapping) {
         return null;
     return undefined;
 }
+function parseImportAction(ctx) {
+    var _a;
+    const body = ctx.request.body;
+    const query = ctx.query;
+    const raw = (_a = body === null || body === void 0 ? void 0 : body.action) !== null && _a !== void 0 ? _a : query === null || query === void 0 ? void 0 : query.action;
+    const value = Array.isArray(raw) ? raw[0] : raw;
+    return value === "apply" ? "apply" : "dry-run";
+}
+function normalizeStoredConfidenceKey(value) {
+    if (value === undefined || value === null || value === "")
+        return null;
+    return String(value);
+}
+function logConfidenceImport(strapi, message, meta) {
+    const suffix = meta ? ` ${JSON.stringify(meta)}` : "";
+    strapi.log.info(`[result-confidence-key] ${message}${suffix}`);
+}
+const RESULT_CONFIDENCE_KEY_VALUES = [
+    "check_evidence",
+    "star_evidence",
+    "cap_evidence",
+    "caution",
+];
+async function updateResultConfidenceKey(strapi, documentId, nextKey, logContext) {
+    const data = { confidence_key: nextKey };
+    try {
+        try {
+            await strapi.documents("api::result.result").update({
+                documentId,
+                data,
+                status: "published",
+            });
+        }
+        catch (publishedError) {
+            await strapi.documents("api::result.result").update({
+                documentId,
+                data,
+            });
+            await strapi.documents("api::result.result").publish({ documentId });
+        }
+        const verified = await strapi.documents("api::result.result").findOne({
+            documentId,
+            status: "published",
+            fields: ["confidence_key", "documentId"],
+        });
+        const writtenKey = normalizeStoredConfidenceKey(verified === null || verified === void 0 ? void 0 : verified.confidence_key);
+        const expectedKey = normalizeStoredConfidenceKey(nextKey);
+        if (writtenKey !== expectedKey) {
+            const error = `Write verification failed: expected ${expectedKey !== null && expectedKey !== void 0 ? expectedKey : "(null)"}, got ${writtenKey !== null && writtenKey !== void 0 ? writtenKey : "(null)"}`;
+            logConfidenceImport(strapi, "write failed", {
+                row: logContext.rowNumber,
+                documentId,
+                result: logContext.resultTitle,
+                old_confidence_key: logContext.currentKey,
+                new_confidence_key: nextKey,
+                success: false,
+                error,
+            });
+            return { success: false, error };
+        }
+        logConfidenceImport(strapi, "write success", {
+            row: logContext.rowNumber,
+            documentId,
+            result: logContext.resultTitle,
+            old_confidence_key: logContext.currentKey,
+            new_confidence_key: nextKey,
+            success: true,
+        });
+        return { success: true, writtenKey };
+    }
+    catch (err) {
+        const error = err.message;
+        logConfidenceImport(strapi, "write failed", {
+            row: logContext.rowNumber,
+            documentId,
+            result: logContext.resultTitle,
+            old_confidence_key: logContext.currentKey,
+            new_confidence_key: nextKey,
+            success: false,
+            error,
+        });
+        return { success: false, error };
+    }
+}
+async function countPublishedResultConfidenceKeys(strapi) {
+    const counts = {
+        check_evidence: 0,
+        star_evidence: 0,
+        cap_evidence: 0,
+        caution: 0,
+        empty: 0,
+    };
+    for (const key of RESULT_CONFIDENCE_KEY_VALUES) {
+        counts[key] = await strapi.documents("api::result.result").count({
+            filters: { confidence_key: { $eq: key } },
+            status: "published",
+        });
+    }
+    counts.empty = await strapi.documents("api::result.result").count({
+        filters: { confidence_key: { $null: true } },
+        status: "published",
+    });
+    return counts;
+}
 function getRowValue(record, ...candidates) {
     const normalizedRecord = new Map();
     for (const [key, value] of Object.entries(record)) {
@@ -479,11 +583,14 @@ async function findResultForConfidenceImport(strapi, record) {
     }
     const baseQuery = {
         populate: { researchPapers: { fields: ["id", "Title"] } },
-        fields: ["id", "confidence_key", "title", "slug"],
+        fields: ["documentId", "confidence_key", "title", "slug"],
+        status: "published",
     };
     let candidates = [];
     if (resultTitle) {
-        const byTitle = await strapi.entityService.findMany("api::result.result", {
+        const byTitle = await strapi
+            .documents("api::result.result")
+            .findMany({
             ...baseQuery,
             filters: { title: { $eqi: resultTitle } },
             limit: 25,
@@ -492,7 +599,9 @@ async function findResultForConfidenceImport(strapi, record) {
         if (candidates.length === 0) {
             const slug = slugify(resultTitle);
             if (slug) {
-                const bySlug = await strapi.entityService.findMany("api::result.result", {
+                const bySlug = await strapi
+                    .documents("api::result.result")
+                    .findMany({
                     ...baseQuery,
                     filters: { slug },
                     limit: 25,
@@ -503,14 +612,16 @@ async function findResultForConfidenceImport(strapi, record) {
     }
     if (candidates.length === 0 && paperTitles.length > 0) {
         for (const paperTitle of paperTitles) {
-            const papers = await strapi.entityService.findMany("api::research-paper.research-paper", {
+            const papers = await strapi
+                .documents("api::research-paper.research-paper")
+                .findMany({
                 filters: { Title: { $eqi: paperTitle } },
                 limit: 1,
                 fields: ["id", "Title"],
             });
             if (!((_a = papers === null || papers === void 0 ? void 0 : papers[0]) === null || _a === void 0 ? void 0 : _a.id))
                 continue;
-            const linked = await strapi.entityService.findMany("api::result.result", {
+            const linked = await strapi.documents("api::result.result").findMany({
                 ...baseQuery,
                 filters: { researchPapers: { id: papers[0].id } },
                 limit: 25,
@@ -521,7 +632,7 @@ async function findResultForConfidenceImport(strapi, record) {
         }
     }
     const uniqueCandidates = [
-        ...new Map(candidates.map((item) => [item.id, item])).values(),
+        ...new Map(candidates.map((item) => [item.documentId, item])).values(),
     ];
     if (paperTitles.length > 0 && uniqueCandidates.length > 1) {
         const narrowed = uniqueCandidates.filter((result) => {
@@ -538,7 +649,7 @@ async function findResultForConfidenceImport(strapi, record) {
     return null;
 }
 async function importResultConfidenceKeys(strapi, records, apply) {
-    var _a, _b;
+    var _a, _b, _c, _d, _e, _f, _g, _h, _j;
     const stats = {
         total: records.length,
         matched: 0,
@@ -547,6 +658,10 @@ async function importResultConfidenceKeys(strapi, records, apply) {
         cleared: 0,
         unmatched: 0,
         duplicates: 0,
+        applied: apply,
+        planned_updates: 0,
+        write_success: 0,
+        write_failed: 0,
     };
     const errors = [];
     const report = {
@@ -554,6 +669,7 @@ async function importResultConfidenceKeys(strapi, records, apply) {
         duplicate_rows: [],
         breakdown_by_confidence: createEmptyConfidenceBreakdown(),
     };
+    logConfidenceImport(strapi, apply ? "Starting APPLY import" : "Starting DRY-RUN import", { total: records.length });
     const rowKeyCounts = new Map();
     for (const record of records) {
         const rowKey = resolveImportRowKey(record);
@@ -649,13 +765,13 @@ async function importResultConfidenceKeys(strapi, records, apply) {
         }
         stats.matched++;
         const nextKey = mapping.action === "clear" ? null : mapping.key;
-        const currentKey = (_b = result.confidence_key) !== null && _b !== void 0 ? _b : null;
+        const currentKey = normalizeStoredConfidenceKey(result.confidence_key);
         const isClearIntent = nextKey === null;
         if (isClearIntent) {
             stats.cleared++;
             bumpBreakdown(confidenceLabel, "cleared");
         }
-        if (currentKey === nextKey) {
+        if (currentKey === normalizeStoredConfidenceKey(nextKey)) {
             stats.unchanged++;
             if (!isClearIntent) {
                 bumpBreakdown(confidenceLabel, "unchanged");
@@ -663,14 +779,55 @@ async function importResultConfidenceKeys(strapi, records, apply) {
             continue;
         }
         bumpBreakdown(confidenceLabel, "updated");
-        if (apply) {
-            await strapi.entityService.update("api::result.result", result.id, {
-                data: { confidence_key: nextKey },
+        stats.planned_updates = ((_b = stats.planned_updates) !== null && _b !== void 0 ? _b : 0) + 1;
+        if (!apply) {
+            stats.updated++;
+            continue;
+        }
+        const documentId = result.documentId;
+        if (!documentId) {
+            stats.write_failed = ((_c = stats.write_failed) !== null && _c !== void 0 ? _c : 0) + 1;
+            const errorReason = "Result missing documentId — cannot update published Result in Strapi v5";
+            errors.push({ row: rowLabel, error: errorReason });
+            logConfidenceImport(strapi, "write failed", {
+                row: rowNumber,
+                documentId: null,
+                result: resultTitle,
+                old_confidence_key: currentKey,
+                new_confidence_key: nextKey,
+                success: false,
+                error: errorReason,
             });
+            continue;
+        }
+        const writeResult = await updateResultConfidenceKey(strapi, documentId, nextKey, {
+            rowNumber,
+            resultTitle,
+            currentKey,
+        });
+        if (!writeResult.success) {
+            stats.write_failed = ((_d = stats.write_failed) !== null && _d !== void 0 ? _d : 0) + 1;
+            errors.push({
+                row: rowLabel,
+                error: (_e = writeResult.error) !== null && _e !== void 0 ? _e : "Unknown update error",
+            });
+            continue;
         }
         stats.updated++;
+        stats.write_success = ((_f = stats.write_success) !== null && _f !== void 0 ? _f : 0) + 1;
     }
-    return { stats, errors, report };
+    const verification = apply
+        ? await countPublishedResultConfidenceKeys(strapi)
+        : undefined;
+    if (apply) {
+        logConfidenceImport(strapi, "APPLY import finished", {
+            planned_updates: (_g = stats.planned_updates) !== null && _g !== void 0 ? _g : 0,
+            write_success: (_h = stats.write_success) !== null && _h !== void 0 ? _h : 0,
+            write_failed: (_j = stats.write_failed) !== null && _j !== void 0 ? _j : 0,
+            verification,
+        });
+    }
+    return { stats, errors, report, verification };
 }
 // ==================== RESULTS LOGIC ====================
 function mapResultRow(csvRow) {
@@ -738,10 +895,11 @@ function isCsvRecord(obj) {
 // ==================== CONTROLLER ====================
 exports.default = {
     async import(ctx) {
+        var _a, _b, _c;
         try {
             const { files, body } = ctx.request;
             const collection = body.collection || "supplements";
-            const action = body.action === "apply" ? "apply" : "dry-run";
+            const action = parseImportAction(ctx);
             if (!files || !files.file) {
                 return ctx.badRequest("No file uploaded");
             }
@@ -891,15 +1049,25 @@ exports.default = {
                     return ctx.badRequest("Invalid CSV format");
                 }
                 const csvRecords = records.filter(isCsvRecord);
-                const { stats: confidenceStats, errors: confidenceErrors, report: confidenceReport, } = await importResultConfidenceKeys(strapi, csvRecords, action === "apply");
+                const apply = action === "apply";
+                strapi.log.info(`[import-export] result-confidence-key import received action=${action} apply=${apply} dryRun=${!apply}`);
+                const { stats: confidenceStats, errors: confidenceErrors, report: confidenceReport, verification: confidenceVerification, } = await importResultConfidenceKeys(strapi, csvRecords, apply);
+                const writeSuccess = (_a = confidenceStats.write_success) !== null && _a !== void 0 ? _a : 0;
+                const writeFailed = (_b = confidenceStats.write_failed) !== null && _b !== void 0 ? _b : 0;
+                const plannedUpdates = (_c = confidenceStats.planned_updates) !== null && _c !== void 0 ? _c : 0;
                 return ctx.send({
-                    success: true,
-                    message: action === "apply"
-                        ? "Result confidence_key import applied"
+                    success: apply ? writeFailed === 0 : true,
+                    message: apply
+                        ? writeFailed === 0
+                            ? `Result confidence_key import applied (${writeSuccess} written, ${plannedUpdates} planned)`
+                            : `Result confidence_key import finished with ${writeFailed} failed write(s) (${writeSuccess} written of ${plannedUpdates} planned)`
                         : "Result confidence_key dry-run completed (no changes written)",
-                    dryRun: action !== "apply",
+                    mode: action,
+                    dryRun: !apply,
+                    applied: apply,
                     stats: confidenceStats,
                     report: confidenceReport,
+                    verification: confidenceVerification,
                     errors: confidenceErrors.length > 0 ? confidenceErrors : undefined,
                 });
             }

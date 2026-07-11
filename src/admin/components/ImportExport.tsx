@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import {
   Box,
   Flex,
@@ -15,63 +15,12 @@ import {
   Thead,
   Tr,
 } from "@strapi/design-system";
-import { useRef } from "react";
 import { Upload, Download, Database, Information, Cross } from "@strapi/icons";
 
 interface ImportStats {
   total: number;
   success?: number;
   failed?: number;
-  matched?: number;
-  updated?: number;
-  unchanged?: number;
-  cleared?: number;
-  unmatched?: number;
-  duplicates?: number;
-  applied?: boolean;
-  planned_updates?: number;
-  write_success?: number;
-  write_failed?: number;
-}
-
-interface ConfidenceKeyVerificationCounts {
-  check_evidence: number;
-  star_evidence: number;
-  cap_evidence: number;
-  caution: number;
-  empty: number;
-}
-
-interface ConfidenceKeyVerificationReport {
-  draft: ConfidenceKeyVerificationCounts;
-  published: ConfidenceKeyVerificationCounts;
-}
-
-interface ConfidenceBreakdownBucket {
-  updated: number;
-  unchanged: number;
-  cleared: number;
-  unmatched: number;
-  duplicate: number;
-}
-
-interface ConfidenceImportRowReport {
-  row_number: number;
-  results: string;
-  research_papers_original: string;
-  research_papers_cleaned: string;
-  confidence: string;
-  confidence_label: string;
-  mapped_confidence_key: string | null;
-  error_reason?: string;
-  duplicate_type?: "exact" | "conflicting";
-  outcome: string;
-}
-
-interface ConfidenceImportReport {
-  unmatched_rows: ConfidenceImportRowReport[];
-  duplicate_rows: ConfidenceImportRowReport[];
-  breakdown_by_confidence: Record<string, ConfidenceBreakdownBucket>;
 }
 
 interface ImportError {
@@ -82,13 +31,7 @@ interface ImportError {
 interface ImportResult {
   success: boolean;
   message: string;
-  mode?: "apply" | "dry-run";
-  dryRun?: boolean;
-  applied?: boolean;
   stats?: ImportStats;
-  report?: ConfidenceImportReport;
-  verification?: ConfidenceKeyVerificationReport;
-  importVersion?: string;
   errors?: ImportError[];
 }
 
@@ -114,110 +57,9 @@ https://pubmed.ncbi.nlm.nih.gov/26502953,No,,"Anxiety,Cognition,Mood,Stress",,No
   results: `Results,Age,Benefit,Benefit Value,Body Type,Confidence,Cortisol Cleaning,Cortisol Filter,Created time,Inflammation Filter,Last edited time,Main Tag,Max Pain,Muscle Damage Filter,Muscle Soreness Filter,Oxidative Stress Filter,Pain Filter,Participants,Product,Score,Sex,Sleep Quality Filter,Sub Tag,Trial Design,Trial Length,Year,Supplements,Research Papers
 Participants who,18,Positive,1,,✅,No,0,"June 6, 2023 14:08",0,"April 18, 2025 16:16",Anxiety,Rhodiola Rosea,0,0,0,0,80,,1,Both sexes,0,,Randomized controlled trial,1-2 Weeks,2024,"3520,3522","36208,36233"
 `,
-
-  "result-confidence-key": `Results,Research Papers,Confidence
-Participants who took the Rhodiola rosea L. extract reported a significant decrease in anxiety,The Effects of Rhodiola rosea L. Extract on Anxiety, Stress, Cognition and Other Mood Symptoms,✅
-Participants who took the Rhodiola rosea L. extract reported a significant decrease in anxiety,The Effects of Rhodiola rosea L. Extract on Anxiety, Stress, Cognition and Other Mood Symptoms,🗒️
-`,
 };
 
 type ApiResult = ImportResult | ExportResult | null;
-
-const CONFIDENCE_BREAKDOWN_LABELS = [
-  "✅",
-  "⭐",
-  "🎓",
-  "🚩",
-  "🗒️",
-  "empty",
-  "other",
-] as const;
-
-const CONFIDENCE_BREAKDOWN_COLUMNS = [
-  { key: "updated", label: "Updated" },
-  { key: "unchanged", label: "Unchanged" },
-  { key: "cleared", label: "Cleared / no icon" },
-  { key: "unmatched", label: "Unmatched" },
-  { key: "duplicate", label: "Duplicate" },
-] as const;
-
-function escapeCsvCell(value: string | number | null | undefined): string {
-  const text = value === null || value === undefined ? "" : String(value);
-  if (/[",\n\r]/.test(text)) {
-    return `"${text.replace(/"/g, '""')}"`;
-  }
-  return text;
-}
-
-function downloadReportCsv(
-  filename: string,
-  headers: string[],
-  rows: Array<Record<string, string | number | null | undefined>>
-) {
-  const lines = [
-    headers.join(","),
-    ...rows.map((row) =>
-      headers.map((header) => escapeCsvCell(row[header])).join(",")
-    ),
-  ];
-  const blob = new Blob([lines.join("\n")], {
-    type: "text/csv;charset=utf-8;",
-  });
-  const url = window.URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = filename;
-  document.body.appendChild(link);
-  link.click();
-  window.URL.revokeObjectURL(url);
-  document.body.removeChild(link);
-}
-
-function downloadUnmatchedConfidenceCsv(rows: ConfidenceImportRowReport[]) {
-  downloadReportCsv(
-    "unmatched-results-confidence-import.csv",
-    [
-      "row_number",
-      "results",
-      "research_papers_cleaned",
-      "research_papers_original",
-      "confidence",
-      "mapped_confidence_key",
-      "error_reason",
-    ],
-    rows.map((row) => ({
-      row_number: row.row_number,
-      results: row.results,
-      research_papers_cleaned: row.research_papers_cleaned,
-      research_papers_original: row.research_papers_original,
-      confidence: row.confidence,
-      mapped_confidence_key: row.mapped_confidence_key,
-      error_reason: row.error_reason ?? "",
-    }))
-  );
-}
-
-function downloadDuplicateConfidenceCsv(rows: ConfidenceImportRowReport[]) {
-  downloadReportCsv(
-    "duplicate-results-confidence-import.csv",
-    [
-      "row_number",
-      "results",
-      "research_papers_cleaned",
-      "confidence",
-      "mapped_confidence_key",
-      "duplicate_type",
-    ],
-    rows.map((row) => ({
-      row_number: row.row_number,
-      results: row.results,
-      research_papers_cleaned: row.research_papers_cleaned,
-      confidence: row.confidence,
-      mapped_confidence_key: row.mapped_confidence_key,
-      duplicate_type: row.duplicate_type ?? "",
-    }))
-  );
-}
 
 export default function SupplementImportExport() {
   const [importing, setImporting] = useState<boolean>(false);
@@ -242,20 +84,8 @@ export default function SupplementImportExport() {
       label: "Results",
       description: "Research findings and outcomes",
     },
-    {
-      id: "result-confidence-key",
-      label: "Result confidence_key",
-      description:
-        "Update-only import for Result.confidence_key from Results CSV columns",
-    },
   ]);
-  const [importAction, setImportAction] = useState<"dry-run" | "apply">(
-    "dry-run",
-  );
   const [showErrors, setShowErrors] = useState<boolean>(false);
-  const [auditView, setAuditView] = useState<"unmatched" | "duplicates" | null>(
-    null
-  );
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const API_BASE = "/api/import-export";
@@ -269,23 +99,15 @@ export default function SupplementImportExport() {
     setResult(null);
 
     try {
-      const isConfidenceImport =
-        selectedCollection === "result-confidence-key" ||
-        selectedCollection === "research-paper-confidence-key";
-      const actionValue = isConfidenceImport ? importAction : "apply";
-
       const formData = new FormData();
       formData.append("file", file);
       formData.append("collection", selectedCollection);
-      formData.append("action", actionValue);
+      formData.append("action", "apply");
 
-      const response = await fetch(
-        `${API_BASE}/import?action=${encodeURIComponent(actionValue)}`,
-        {
-          method: "POST",
-          body: formData,
-        }
-      );
+      const response = await fetch(`${API_BASE}/import?action=apply`, {
+        method: "POST",
+        body: formData,
+      });
 
       const data: ImportResult = await response.json();
 
@@ -309,7 +131,7 @@ export default function SupplementImportExport() {
 
     try {
       const response = await fetch(
-        `${API_BASE}/export?collection=${selectedCollection}`
+        `${API_BASE}/export?collection=${selectedCollection}`,
       );
 
       if (!response.ok) {
@@ -351,8 +173,8 @@ export default function SupplementImportExport() {
     URL.revokeObjectURL(url);
   };
 
-  const isImportResult = (result: ApiResult): result is ImportResult => {
-    return result !== null && "stats" in result;
+  const isImportResult = (value: ApiResult): value is ImportResult => {
+    return value !== null && "stats" in value;
   };
 
   const getSelectedCollectionLabel = () => {
@@ -361,18 +183,8 @@ export default function SupplementImportExport() {
     );
   };
 
-  const handleCollectionChange = (value: string | number) => {
-    setSelectedCollection(String(value));
-    setImportAction("dry-run");
-  };
-
-  const isConfidenceKeyImport =
-    selectedCollection === "result-confidence-key" ||
-    selectedCollection === "research-paper-confidence-key";
-
   return (
     <Box background="neutral100" padding={8}>
-      {/* Header */}
       <Box paddingBottom={6}>
         <Flex direction="column" gap={2}>
           <Typography variant="alpha">Data Import/Export</Typography>
@@ -382,7 +194,6 @@ export default function SupplementImportExport() {
         </Flex>
       </Box>
 
-      {/* Collection Selector */}
       <Box
         background="neutral0"
         padding={6}
@@ -402,7 +213,7 @@ export default function SupplementImportExport() {
             label="Collection"
             placeholder="Select a collection"
             value={selectedCollection}
-            onChange={handleCollectionChange}
+            onChange={(value) => setSelectedCollection(String(value))}
           >
             {collections.map((col) => (
               <SingleSelectOption key={col.id} value={col.id}>
@@ -424,7 +235,6 @@ export default function SupplementImportExport() {
         </Flex>
       </Box>
 
-      {/* Action Cards */}
       <Flex gap={6} marginBottom={8}>
         <Box
           style={{ flex: 1 }}
@@ -444,27 +254,10 @@ export default function SupplementImportExport() {
             </Flex>
 
             <Typography variant="epsilon" textColor="neutral600">
-              {isConfidenceKeyImport
-                ? "Upload a Results-format CSV. Confidence emoji values (✅ ⭐ 🎓 🚩 🗒️) are mapped automatically to Result.confidence_key enum keys. Empty or 🗒️ clears the icon. Dry-run is the default."
-                : "Upload a CSV file to import or update records in the selected collection. Existing records will be updated based on their unique identifiers."}
+              Upload a CSV file to import or update records in the selected
+              collection. Existing records will be updated based on their unique
+              identifiers.
             </Typography>
-
-            {isConfidenceKeyImport && (
-              <SingleSelect
-                label="Import mode"
-                value={importAction}
-                onChange={(value) =>
-                  setImportAction(value === "apply" ? "apply" : "dry-run")
-                }
-              >
-                <SingleSelectOption value="dry-run">
-                  Dry-run (preview only)
-                </SingleSelectOption>
-                <SingleSelectOption value="apply">
-                  Apply updates
-                </SingleSelectOption>
-              </SingleSelect>
-            )}
 
             <input
               type="file"
@@ -483,13 +276,7 @@ export default function SupplementImportExport() {
               fullWidth
               onClick={() => fileInputRef.current?.click()}
             >
-              {importing
-                ? "Importing..."
-                : isConfidenceKeyImport
-                  ? importAction === "apply"
-                    ? "Choose CSV File (Apply)"
-                    : "Choose CSV File (Dry-run)"
-                  : "Choose CSV File"}
+              {importing ? "Importing..." : "Choose CSV File"}
             </Button>
           </Flex>
         </Box>
@@ -564,7 +351,6 @@ export default function SupplementImportExport() {
         </Box>
       </Flex>
 
-      {/* Results & Errors */}
       {result && (
         <Box marginBottom={6}>
           <Alert
@@ -575,12 +361,6 @@ export default function SupplementImportExport() {
           >
             <Flex direction="column" gap={3}>
               <Typography>{result.message}</Typography>
-
-              {isImportResult(result) && result.importVersion && (
-                <Typography variant="omega" textColor="neutral600">
-                  Import engine version: {result.importVersion}
-                </Typography>
-              )}
 
               {isImportResult(result) && result.stats && (
                 <Flex gap={6} marginTop={2} wrap="wrap">
@@ -600,266 +380,48 @@ export default function SupplementImportExport() {
                       </Typography>
                     </Box>
                   </Flex>
-
-                  {typeof result.stats.matched === "number" ? (
-                    <>
-                      {result.applied !== undefined && (
-                        <Flex alignItems="center" gap={2}>
-                          <Typography variant="epsilon" fontWeight="bold">
-                            Mode:
-                          </Typography>
-                          <Box
-                            background={
-                              result.applied ? "success100" : "warning100"
-                            }
-                            padding={2}
-                            paddingLeft={3}
-                            paddingRight={3}
-                            hasRadius
-                          >
-                            <Typography variant="pi" fontWeight="bold">
-                              {result.applied ? "Apply (writes enabled)" : "Dry-run (no writes)"}
-                            </Typography>
-                          </Box>
-                        </Flex>
-                      )}
-                      {[
-                        ["Matched", result.stats.matched],
-                        ...(result.applied
-                          ? [
-                              [
-                                "Planned updates",
-                                result.stats.planned_updates ??
-                                  result.stats.updated ??
-                                  0,
-                              ],
-                              ["Written", result.stats.updated ?? 0],
-                              ["Write failed", result.stats.write_failed ?? 0],
-                            ]
-                          : [["Updated (planned)", result.stats.updated ?? 0]]),
-                        ["Unchanged", result.stats.unchanged ?? 0],
-                        ["Cleared / no icon", result.stats.cleared ?? 0],
-                        ["Unmatched", result.stats.unmatched ?? 0],
-                        ["Duplicates", result.stats.duplicates ?? 0],
-                      ].map(([label, value]) => (
-                        <Flex key={label} alignItems="center" gap={2}>
-                          <Typography variant="epsilon" fontWeight="bold">
-                            {label}:
-                          </Typography>
-                          <Box
-                            background="neutral150"
-                            padding={2}
-                            paddingLeft={3}
-                            paddingRight={3}
-                            hasRadius
-                          >
-                            <Typography variant="pi" fontWeight="bold">
-                              {value}
-                            </Typography>
-                          </Box>
-                        </Flex>
-                      ))}
-                    </>
-                  ) : (
-                    <>
-                      <Flex alignItems="center" gap={2}>
-                        <Typography variant="epsilon" fontWeight="bold">
-                          Success:
-                        </Typography>
-                        <Box
-                          background={
-                            (result.stats.success ?? 0) > 0
-                              ? "success100"
-                              : "neutral150"
-                          }
-                          padding={2}
-                          paddingLeft={3}
-                          paddingRight={3}
-                          hasRadius
-                        >
-                          <Typography variant="pi" fontWeight="bold">
-                            {result.stats.success ?? 0}
-                          </Typography>
-                        </Box>
-                      </Flex>
-                      <Flex alignItems="center" gap={2}>
-                        <Typography variant="epsilon" fontWeight="bold">
-                          Failed:
-                        </Typography>
-                        <Box
-                          background={
-                            (result.stats.failed ?? 0) > 0
-                              ? "danger100"
-                              : "neutral150"
-                          }
-                          padding={2}
-                          paddingLeft={3}
-                          paddingRight={3}
-                          hasRadius
-                        >
-                          <Typography variant="pi" fontWeight="bold">
-                            {result.stats.failed ?? 0}
-                          </Typography>
-                        </Box>
-                      </Flex>
-                    </>
-                  )}
-                </Flex>
-                )}
-
-              {isImportResult(result) &&
-                result.verification &&
-                isConfidenceKeyImport && (
-                  <Flex direction="column" gap={4} marginTop={2}>
-                    {(["draft", "published"] as const).map((status) => (
-                      <Flex key={status} direction="column" gap={2}>
-                        <Typography variant="delta" fontWeight="bold">
-                          Result.confidence_key counts ({status} —{" "}
-                          {status === "draft"
-                            ? "what Strapi admin edit form shows"
-                            : "what API/frontend reads"}
-                          )
-                        </Typography>
-                        <Flex gap={4} wrap="wrap">
-                          {(
-                            [
-                              ["check_evidence", "✅ check_evidence"],
-                              ["star_evidence", "⭐ star_evidence"],
-                              ["cap_evidence", "🎓 cap_evidence"],
-                              ["caution", "🚩 caution"],
-                              ["empty", "Empty / no icon"],
-                            ] as const
-                          ).map(([key, label]) => (
-                            <Flex key={key} alignItems="center" gap={2}>
-                              <Typography variant="epsilon" fontWeight="bold">
-                                {label}:
-                              </Typography>
-                              <Box
-                                background="neutral150"
-                                padding={2}
-                                paddingLeft={3}
-                                paddingRight={3}
-                                hasRadius
-                              >
-                                <Typography variant="pi" fontWeight="bold">
-                                  {result.verification![status][key]}
-                                </Typography>
-                              </Box>
-                            </Flex>
-                          ))}
-                        </Flex>
-                      </Flex>
-                    ))}
-                  </Flex>
-                )}
-
-              {isImportResult(result) &&
-                result.report &&
-                isConfidenceKeyImport && (
-                  <Flex direction="column" gap={4} marginTop={4}>
-                    <Typography variant="delta" fontWeight="bold">
-                      Confidence breakdown (by original Confidence value)
+                  <Flex alignItems="center" gap={2}>
+                    <Typography variant="epsilon" fontWeight="bold">
+                      Success:
                     </Typography>
-                    <Box style={{ overflowX: "auto" }}>
-                      <Table
-                        colCount={CONFIDENCE_BREAKDOWN_COLUMNS.length + 1}
-                        rowCount={CONFIDENCE_BREAKDOWN_LABELS.length + 1}
-                      >
-                        <Thead>
-                          <Tr>
-                            <Th>
-                              <Typography variant="sigma">Confidence</Typography>
-                            </Th>
-                            {CONFIDENCE_BREAKDOWN_COLUMNS.map((column) => (
-                              <Th key={column.key}>
-                                <Typography variant="sigma">
-                                  {column.label}
-                                </Typography>
-                              </Th>
-                            ))}
-                          </Tr>
-                        </Thead>
-                        <Tbody>
-                          {CONFIDENCE_BREAKDOWN_LABELS.map((label) => {
-                            const bucket =
-                              result.report?.breakdown_by_confidence[label];
-                            if (!bucket) return null;
-                            const rowTotal = CONFIDENCE_BREAKDOWN_COLUMNS.reduce(
-                              (sum, column) => sum + bucket[column.key],
-                              0
-                            );
-                            if (label === "other" && rowTotal === 0) {
-                              return null;
-                            }
-                            return (
-                              <Tr key={label}>
-                                <Td>
-                                  <Typography variant="omega">
-                                    {label === "empty" ? "(empty)" : label}
-                                  </Typography>
-                                </Td>
-                                {CONFIDENCE_BREAKDOWN_COLUMNS.map((column) => (
-                                  <Td key={column.key}>
-                                    <Typography variant="omega">
-                                      {bucket[column.key]}
-                                    </Typography>
-                                  </Td>
-                                ))}
-                              </Tr>
-                            );
-                          })}
-                        </Tbody>
-                      </Table>
+                    <Box
+                      background={
+                        (result.stats.success ?? 0) > 0
+                          ? "success100"
+                          : "neutral150"
+                      }
+                      padding={2}
+                      paddingLeft={3}
+                      paddingRight={3}
+                      hasRadius
+                    >
+                      <Typography variant="pi" fontWeight="bold">
+                        {result.stats.success ?? 0}
+                      </Typography>
                     </Box>
-
-                    <Flex gap={3} wrap="wrap">
-                      {result.report.unmatched_rows.length > 0 && (
-                        <>
-                          <Button
-                            variant="secondary"
-                            startIcon={<Download />}
-                            onClick={() =>
-                              downloadUnmatchedConfidenceCsv(
-                                result.report!.unmatched_rows
-                              )
-                            }
-                          >
-                            Download unmatched CSV (
-                            {result.report.unmatched_rows.length})
-                          </Button>
-                          <Button
-                            variant="tertiary"
-                            onClick={() => setAuditView("unmatched")}
-                          >
-                            Preview unmatched rows
-                          </Button>
-                        </>
-                      )}
-                      {result.report.duplicate_rows.length > 0 && (
-                        <>
-                          <Button
-                            variant="secondary"
-                            startIcon={<Download />}
-                            onClick={() =>
-                              downloadDuplicateConfidenceCsv(
-                                result.report!.duplicate_rows
-                              )
-                            }
-                          >
-                            Download duplicate CSV (
-                            {result.report.duplicate_rows.length})
-                          </Button>
-                          <Button
-                            variant="tertiary"
-                            onClick={() => setAuditView("duplicates")}
-                          >
-                            Preview duplicate rows
-                          </Button>
-                        </>
-                      )}
-                    </Flex>
                   </Flex>
-                )}
+                  <Flex alignItems="center" gap={2}>
+                    <Typography variant="epsilon" fontWeight="bold">
+                      Failed:
+                    </Typography>
+                    <Box
+                      background={
+                        (result.stats.failed ?? 0) > 0
+                          ? "danger100"
+                          : "neutral150"
+                      }
+                      padding={2}
+                      paddingLeft={3}
+                      paddingRight={3}
+                      hasRadius
+                    >
+                      <Typography variant="pi" fontWeight="bold">
+                        {result.stats.failed ?? 0}
+                      </Typography>
+                    </Box>
+                  </Flex>
+                </Flex>
+              )}
 
               {isImportResult(result) &&
                 result.errors &&
@@ -879,7 +441,6 @@ export default function SupplementImportExport() {
         </Box>
       )}
 
-      {/* Error Alert */}
       {error && (
         <Box marginBottom={6}>
           <Alert
@@ -893,7 +454,6 @@ export default function SupplementImportExport() {
         </Box>
       )}
 
-      {/* Instructions */}
       <Box background="neutral0" padding={6} hasRadius shadow="filterShadow">
         <Flex direction="column" gap={4}>
           <Flex alignItems="center" gap={3}>
@@ -966,190 +526,8 @@ export default function SupplementImportExport() {
         </Flex>
       </Box>
 
-      {/* Audit preview modal (confidence import) */}
-      {isImportResult(result) &&
-        result.report &&
-        auditView &&
-        (auditView === "unmatched"
-          ? result.report.unmatched_rows
-          : result.report.duplicate_rows
-        ).length > 0 && (
-          <>
-            <Box
-              style={{
-                position: "fixed",
-                top: 0,
-                left: 0,
-                right: 0,
-                bottom: 0,
-                backgroundColor: "rgba(0, 0, 0, 0.5)",
-                zIndex: 9998,
-              }}
-              onClick={() => setAuditView(null)}
-            />
-            <Box
-              style={{
-                position: "fixed",
-                top: "50%",
-                left: "50%",
-                transform: "translate(-50%, -50%)",
-                zIndex: 9999,
-                maxWidth: "1200px",
-                width: "95%",
-                maxHeight: "85vh",
-                overflow: "hidden",
-              }}
-              background="neutral0"
-              hasRadius
-              shadow="tableShadow"
-            >
-              <Flex
-                padding={6}
-                justifyContent="space-between"
-                alignItems="center"
-                borderColor="neutral200"
-                style={{ borderBottom: "1px solid" }}
-              >
-                <Typography
-                  fontWeight="bold"
-                  textColor="neutral800"
-                  variant="beta"
-                >
-                  {auditView === "unmatched"
-                    ? `Unmatched rows (${result.report.unmatched_rows.length})`
-                    : `Duplicate rows (${result.report.duplicate_rows.length})`}
-                </Typography>
-                <Flex gap={2}>
-                  <Button
-                    variant="secondary"
-                    startIcon={<Download />}
-                    onClick={() =>
-                      auditView === "unmatched"
-                        ? downloadUnmatchedConfidenceCsv(
-                            result.report!.unmatched_rows
-                          )
-                        : downloadDuplicateConfidenceCsv(
-                            result.report!.duplicate_rows
-                          )
-                    }
-                  >
-                    Download CSV
-                  </Button>
-                  <Button
-                    variant="tertiary"
-                    onClick={() => setAuditView(null)}
-                    startIcon={<Cross />}
-                  >
-                    Close
-                  </Button>
-                </Flex>
-              </Flex>
-              <Box padding={6} style={{ maxHeight: "65vh", overflow: "auto" }}>
-                <Table
-                  colCount={auditView === "unmatched" ? 7 : 6}
-                  rowCount={
-                    (auditView === "unmatched"
-                      ? result.report.unmatched_rows
-                      : result.report.duplicate_rows
-                    ).length + 1
-                  }
-                >
-                  <Thead>
-                    <Tr>
-                      <Th>
-                        <Typography variant="sigma">Row</Typography>
-                      </Th>
-                      <Th>
-                        <Typography variant="sigma">Results</Typography>
-                      </Th>
-                      <Th>
-                        <Typography variant="sigma">
-                          Research Papers (cleaned)
-                        </Typography>
-                      </Th>
-                      {auditView === "unmatched" && (
-                        <Th>
-                          <Typography variant="sigma">
-                            Research Papers (original)
-                          </Typography>
-                        </Th>
-                      )}
-                      <Th>
-                        <Typography variant="sigma">Confidence</Typography>
-                      </Th>
-                      <Th>
-                        <Typography variant="sigma">
-                          Mapped confidence_key
-                        </Typography>
-                      </Th>
-                      <Th>
-                        <Typography variant="sigma">
-                          {auditView === "unmatched"
-                            ? "Error reason"
-                            : "Duplicate type"}
-                        </Typography>
-                      </Th>
-                    </Tr>
-                  </Thead>
-                  <Tbody>
-                    {(auditView === "unmatched"
-                      ? result.report.unmatched_rows
-                      : result.report.duplicate_rows
-                    ).map((row) => (
-                      <Tr key={row.row_number}>
-                        <Td>
-                          <Typography variant="omega">
-                            {row.row_number}
-                          </Typography>
-                        </Td>
-                        <Td>
-                          <Typography variant="omega">{row.results}</Typography>
-                        </Td>
-                        <Td>
-                          <Typography variant="omega">
-                            {row.research_papers_cleaned}
-                          </Typography>
-                        </Td>
-                        {auditView === "unmatched" && (
-                          <Td>
-                            <Typography variant="omega">
-                              {row.research_papers_original}
-                            </Typography>
-                          </Td>
-                        )}
-                        <Td>
-                          <Typography variant="omega">
-                            {row.confidence || "(empty)"}
-                          </Typography>
-                        </Td>
-                        <Td>
-                          <Typography variant="omega">
-                            {row.mapped_confidence_key ?? "(null)"}
-                          </Typography>
-                        </Td>
-                        <Td>
-                          <Typography
-                            variant="omega"
-                            textColor="danger600"
-                          >
-                            {auditView === "unmatched"
-                              ? row.error_reason
-                              : row.duplicate_type}
-                          </Typography>
-                        </Td>
-                      </Tr>
-                    ))}
-                  </Tbody>
-                </Table>
-              </Box>
-            </Box>
-          </>
-        )}
-
-      {/* Issues modal */}
       {isImportResult(result) && result.errors && showErrors && (
         <>
-          {/* Backdrop */}
           <Box
             style={{
               position: "fixed",
@@ -1163,7 +541,6 @@ export default function SupplementImportExport() {
             onClick={() => setShowErrors(false)}
           />
 
-          {/* Modal */}
           <Box
             style={{
               position: "fixed",
@@ -1180,7 +557,6 @@ export default function SupplementImportExport() {
             hasRadius
             shadow="tableShadow"
           >
-            {/* Header */}
             <Flex
               padding={6}
               justifyContent="space-between"
@@ -1204,7 +580,6 @@ export default function SupplementImportExport() {
               </Button>
             </Flex>
 
-            {/* Body */}
             <Box padding={6} style={{ maxHeight: "60vh", overflow: "auto" }}>
               <Table colCount={2} rowCount={result.errors.length}>
                 <Thead>
@@ -1234,7 +609,6 @@ export default function SupplementImportExport() {
               </Table>
             </Box>
 
-            {/* Footer */}
             <Flex
               padding={6}
               justifyContent="flex-end"

@@ -878,9 +878,6 @@ export interface ApiResearchPaperResearchPaper
     Area: Schema.Attribute.String;
     BodyType: Schema.Attribute.String;
     Confidence: Schema.Attribute.String;
-    confidence_key: Schema.Attribute.Enumeration<
-      ['strong_evidence', 'moderate_evidence', 'limited_evidence', 'caution']
-    >;
     CortisolExerciseCleaning: Schema.Attribute.Boolean &
       Schema.Attribute.DefaultTo<false>;
     createdAt: Schema.Attribute.DateTime;
@@ -989,9 +986,6 @@ export interface ApiResultResult extends Struct.CollectionTypeSchema {
     benefitValue: Schema.Attribute.Integer;
     bodyType: Schema.Attribute.String;
     confidence: Schema.Attribute.String;
-    confidence_key: Schema.Attribute.Enumeration<
-      ['check_evidence', 'star_evidence', 'cap_evidence', 'caution']
-    >;
     cortisolCleaning: Schema.Attribute.Boolean;
     cortisolFilter: Schema.Attribute.Boolean;
     createdAt: Schema.Attribute.DateTime;
@@ -1105,6 +1099,7 @@ export interface ApiStudyIconSettingStudyIconSetting
   extends Struct.SingleTypeSchema {
   collectionName: 'study_icon_settings';
   info: {
+    description: 'Global study confidence icons used on biomarker supplement pages';
     displayName: 'Study Icon Settings';
     pluralName: 'study-icon-settings';
     singularName: 'study-icon-setting';
@@ -1119,6 +1114,9 @@ export interface ApiStudyIconSettingStudyIconSetting
     createdAt: Schema.Attribute.DateTime;
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
+    internal_title: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.DefaultTo<'Study Icon Settings'>;
     locale: Schema.Attribute.String & Schema.Attribute.Private;
     localizations: Schema.Attribute.Relation<
       'oneToMany',

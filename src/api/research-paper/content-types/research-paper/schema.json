@@ -48,15 +48,6 @@
     "Confidence": {
       "type": "string"
     },
-    "confidence_key": {
-      "type": "enumeration",
-      "enum": [
-        "strong_evidence",
-        "moderate_evidence",
-        "limited_evidence",
-        "caution"
-      ]
-    },
     "AMEND": {
       "type": "boolean",
       "default": false

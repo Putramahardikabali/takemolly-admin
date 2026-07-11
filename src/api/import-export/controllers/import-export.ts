@@ -550,6 +550,7 @@ const RESULT_CONFIDENCE_KEY_VALUES = [
 ] as const;
 
 const RESULT_CONTENT_TYPE_UID = "api::result.result";
+const CONFIDENCE_IMPORT_VERSION = "2026-07-11-multi-match-v1";
 
 async function readResultConfidenceKey(
   strapi: any,
@@ -1496,6 +1497,7 @@ export default {
 
         return ctx.send({
           success: apply ? writeFailed === 0 : true,
+          importVersion: CONFIDENCE_IMPORT_VERSION,
           message: apply
             ? writeFailed === 0
               ? `Result confidence_key import applied (${writeSuccess} written, ${plannedUpdates} planned)`

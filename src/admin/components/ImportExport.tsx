@@ -88,6 +88,7 @@ interface ImportResult {
   stats?: ImportStats;
   report?: ConfidenceImportReport;
   verification?: ConfidenceKeyVerificationReport;
+  importVersion?: string;
   errors?: ImportError[];
 }
 
@@ -574,6 +575,12 @@ export default function SupplementImportExport() {
           >
             <Flex direction="column" gap={3}>
               <Typography>{result.message}</Typography>
+
+              {isImportResult(result) && result.importVersion && (
+                <Typography variant="omega" textColor="neutral600">
+                  Import engine version: {result.importVersion}
+                </Typography>
+              )}
 
               {isImportResult(result) && result.stats && (
                 <Flex gap={6} marginTop={2} wrap="wrap">

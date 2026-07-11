@@ -391,6 +391,7 @@ const RESULT_CONFIDENCE_KEY_VALUES = [
     "caution",
 ];
 const RESULT_CONTENT_TYPE_UID = "api::result.result";
+const CONFIDENCE_IMPORT_VERSION = "2026-07-11-multi-match-v1";
 async function readResultConfidenceKey(strapi, documentId, status) {
     const doc = await strapi.documents(RESULT_CONTENT_TYPE_UID).findOne({
         documentId,
@@ -1129,6 +1130,7 @@ exports.default = {
                 const plannedUpdates = (_c = confidenceStats.planned_updates) !== null && _c !== void 0 ? _c : 0;
                 return ctx.send({
                     success: apply ? writeFailed === 0 : true,
+                    importVersion: CONFIDENCE_IMPORT_VERSION,
                     message: apply
                         ? writeFailed === 0
                             ? `Result confidence_key import applied (${writeSuccess} written, ${plannedUpdates} planned)`

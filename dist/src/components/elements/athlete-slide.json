@@ -12,12 +12,12 @@
             "type": "string",
             "default": "AND I TAKE MOLLY"
         },
-        "poster_image": {
-            "type": "media",
-            "multiple": false,
-            "allowedTypes": ["images"],
-            "required": true
-        },
+    "poster_image": {
+      "type": "media",
+      "multiple": false,
+      "allowedTypes": ["images"],
+      "required": false
+    },
         "video_url": {
             "type": "string",
             "description": "Link to YouTube, Vimeo, or a direct video file URL"
